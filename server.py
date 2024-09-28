@@ -1,7 +1,7 @@
 from mesa.visualization.modules import CanvasGrid
 from mesa.visualization.ModularVisualization import ModularServer
 from model import BombermanModel  # Importamos tu modelo de Bomberman
-from agent import BombermanAgent, Bomb  # Importamos los agentes
+from agent import BombermanAgent, Bomb, Rock, Metal  # Importamos los agentes
 
 # Definir cómo se visualizan los agentes
 def agent_portrayal(agent):
@@ -11,8 +11,13 @@ def agent_portrayal(agent):
     elif isinstance(agent, Bomb):
         portrayal = {"Shape": "circle", "Filled": "true", "r": 0.3, "Color": "red"}
         portrayal["Layer"] = 0  # Definir la capa para las bombas
+    elif isinstance(agent, Rock):
+        portrayal = {"Shape": "rect", "Filled": "true", "w": 1, "h": 1, "Color": "brown"}
+        portrayal["Layer"] = 0  # Rocas en la capa 0
+    elif isinstance(agent, Metal):
+        portrayal = {"Shape": "rect", "Filled": "true", "w": 1, "h": 1, "Color": "gray"}
+        portrayal["Layer"] = 0  # Metales en la capa 0
     return portrayal
-
 
 # Dimensiones del mapa
 width, height = 10, 10
@@ -25,7 +30,7 @@ server = ModularServer(
     BombermanModel,
     [grid],  # Agregar el módulo de visualización
     "Bomberman Simulation",
-    {"width": width, "height": height, "N": 5}  # Parámetros del modelo
+    {"width": width, "height": height}  # Parámetros del modelo
 )
 
 server.port = 8521  # El puerto para la interfaz
