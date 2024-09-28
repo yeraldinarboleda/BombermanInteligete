@@ -63,3 +63,18 @@ class Rock(Agent):
 class Metal(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
+        
+class Path(Agent):
+    def __init__(self, pos, model):
+        super().__init__(pos, model)
+        self.pos = pos
+
+class Balloon(Agent):
+    def __init__(self, pos, model):
+        super().__init__(pos, model)
+        self.pos = pos
+
+class Exit(Agent):
+    def __init__(self, pos, model):
+        super().__init__(pos, model)
+        self.pos = pos
