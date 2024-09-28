@@ -5,11 +5,18 @@ class BombermanAgent(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
         self.pos = (0, 0)  # Posición inicial; esta será asignada por el modelo
+        self.bomb_cooldown = 10  # Cada 10 pasos puede soltar una bomba
+        self.steps_since_last_bomb = 0
 
     def step(self):
-        self.move()  # Llama a la función de movimiento
+        self.move()  # Movimiento aleatorio
+        self.steps_since_last_bomb += 1
+        self.drop_bomb_if_ready()  # Verifica si es momento de dejar una bomba
 
     def move(self):
+        if self.pos is None:
+            return
+        
         # Movimiento aleatorio: arriba, abajo, izquierda, derecha
         move = random.choice(["up", "down", "left", "right"])
         
@@ -35,6 +42,18 @@ class BombermanAgent(Agent):
 
         # Mover el agente a la nueva posición si está libre
         self.model.grid.move_agent(self, new_pos)
+
+    def drop_bomb_if_ready(self):
+        """
+        Deja una bomba si han pasado suficientes pasos desde la última vez.
+        """
+        if self.steps_since_last_bomb >= self.bomb_cooldown:
+            bomb = Bomb(self.model.next_id(), self.model)
+            self.model.grid.place_agent(bomb, self.pos)
+            self.model.schedule.add(bomb)
+            self.steps_since_last_bomb = 0  # Reinicia el temporizador para la próxima bomba
+            print(f"Bomberman {self.unique_id} dejó una bomba en {self.pos}")
+
 
 class Bomb(Agent):
     def __init__(self, unique_id, model):

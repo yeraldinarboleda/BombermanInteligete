@@ -22,16 +22,15 @@ def agent_portrayal(agent):
         portrayal["Shape"] = "iconos/globo.png"
     elif isinstance(agent, Exit):
         portrayal["Shape"] = "iconos/salida.png"
-        portrayal["Layer"] = 1
+        portrayal["Layer"] = 2
     elif isinstance(agent, Path):
         portrayal["Shape"] = "iconos/camino.png"
         portrayal["Layer"] = 0
 
     return portrayal
 
-
 # Cargar el mapa desde el archivo
-map_loader = MapLoader("mapa.txt")
+map_loader = MapLoader("mapas/mapa.txt")
 
 map_data = map_loader.load_map()
 
