@@ -9,6 +9,8 @@ class BombermanAgent(Agent):
         self.steps_since_last_bomb = 0
 
     def step(self):
+        if self.pos is None:
+            return
         self.move()  # Movimiento aleatorio
         self.steps_since_last_bomb += 1
         self.drop_bomb_if_ready()  # Verifica si es momento de dejar una bomba
