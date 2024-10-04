@@ -1,13 +1,17 @@
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
-from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon
+from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon ,NumberedPath
 from random import choice
+from controllers.UninformedSearch import SearchFunctions
 
 class BombermanModel(Model):
-    """Modelo que representa el juego de Bomberman."""
-    
-    def __init__(self, map_data, search_type=None, algorithm=None, heuristic=None):
+    def __init__(self, map_data, search_type, algorithm, heuristic):
+        # Agregar variable para almacenar las posiciones visitadas
+        self.path_positions = {}
+        self.path_counter = 1  # Empezar la numeración desde 1
+        
+        # Código existente
         self.map_data = map_data
         self.grid_width = len(map_data[0])
         self.grid_height = len(map_data)
@@ -16,26 +20,22 @@ class BombermanModel(Model):
         self.exit_position = None
         self.current_id = 0
         
-        # Nuevos atributos para los parámetros de búsqueda
         self.search_type = search_type
         self.algorithm = algorithm
         self.heuristic = heuristic
+        
+        self.path = []
 
-        # Crear el mapa basado en la información proporcionada por el archivo
         self.load_agents_from_map(map_data)
+        
+        self.search_functions = SearchFunctions(self.get_walkable_nodes(), self.map_data)
+
 
     def next_id(self):
-        """
-        Retorna un nuevo identificador único para los agentes.
-        """
         self.current_id += 1
         return self.current_id
 
     def load_agents_from_map(self, map_data):
-        """
-        Crea los agentes Bomberman, rocas, metales y caminos según el mapa cargado.
-        Si no se asigna una salida en el archivo de mapa, se asigna aleatoriamente en una roca.
-        """
         rocks = []
         exit_assigned = False
         
@@ -83,10 +83,6 @@ class BombermanModel(Model):
             print(f"Salida asignada aleatoriamente en {random_rock_pos}")
 
     def eliminar_agentes_almacenados(self, pos):
-        """
-        Elimina agentes que estén en las posiciones adyacentes a la posición de la bomba,
-        pero solo afecta a los Bomberman y las Rocas.
-        """
         agentes = self.grid.get_neighbors(pos, moore=True, include_center=True)
 
         for agente in agentes:
@@ -103,35 +99,79 @@ class BombermanModel(Model):
             elif isinstance(agente, Metal):
                 print(f"Metal {agente.unique_id} en {agente.pos} es indestructible")
 
+    def get_walkable_nodes(self):
+        walkable_nodes = []
+        for y, row in enumerate(self.map_data):
+            for x, cell in enumerate(row):
+                if cell in ["C", "C_b", "C_g"]:
+                    walkable_nodes.append(Node(x, y))
+        return walkable_nodes
+
+    def apply_search_algorithm(self):
+        bomberman = next((agent for agent in self.schedule.agents if isinstance(agent, BombermanAgent)), None)
+        if not bomberman or not self.exit_position:
+            return
+
+        start_node = Node(bomberman.pos[0], bomberman.pos[1])
+        goal_node = Node(self.exit_position[0], self.exit_position[1])
+
+        path = None
+        if self.search_type == "no-informada":
+            if self.algorithm == "Anchura":
+                path = self.search_functions.RecorridoEnAnchura(start_node, goal_node)
+            elif self.algorithm == "Profundidad":
+                path = self.search_functions.recorrido_en_profundidad(start_node, goal_node)
+            # Implementar otros algoritmos de búsqueda no informada aquí
+
+        if path:
+            for i, node in enumerate(path):
+                # Colocar un número en la posición del nodo para mostrar el orden de visita
+                self.grid.place_agent(NumberedPath(node.get_position(), self, i), node.get_position())
+
+            # Mover Bomberman a la siguiente posición
+            next_pos = self.get_next_position(bomberman.pos, path)
+            if next_pos:
+                self.grid.move_agent(bomberman, next_pos)
+
+
+
+
+
+    def mark_path(self):
+        for i, node in enumerate(self.path):
+            contents = self.grid.get_cell_list_contents([node.get_position()])
+            for agent in contents:
+                if isinstance(agent, Path):
+                    agent.visit_order = i + 1
+
     def step(self):
-        """Avanza un paso en la simulación."""
         self.schedule.step()
 
-        # Verificar si hay bombas que explotaron
         for agente in self.schedule.agents:
             if isinstance(agente, Bomb) and agente.timer <= 0:
                 self.eliminar_agentes_almacenados(agente.pos)
                 self.grid.remove_agent(agente)
                 self.schedule.remove(agente)
                 
-        # Verificar si el bomberman sigue vivo
         bomberman_vivo = any(isinstance(agente, BombermanAgent) for agente in self.schedule.agents)
         
         if not bomberman_vivo:
-            # Reiniciar la simulación
             self.__init__(map_data=self.map_data, search_type=self.search_type, algorithm=self.algorithm, heuristic=self.heuristic)
             print("Simulación reiniciada")
 
-        # Aquí puedes implementar la lógica para usar el algoritmo de búsqueda seleccionado
-        if self.search_type and self.algorithm:
-            self.apply_search_algorithm()
+        if self.path and self.current_step < len(self.path):
+            bomberman = next((agent for agent in self.schedule.agents if isinstance(agent, BombermanAgent)), None)
+            if bomberman:
+                next_pos = self.path[self.current_step].get_position()
+                self.grid.move_agent(bomberman, next_pos)
+                self.current_step += 1
+        elif self.path and self.current_step >= len(self.path):
+            print("Bomberman ha llegado a la salida")
 
-    def apply_search_algorithm(self):
-        """
-        Aplica el algoritmo de búsqueda seleccionado.
-        Esta es una función placeholder que deberás implementar.
-        """
-        print(f"Aplicando búsqueda {self.search_type} con algoritmo {self.algorithm}")
-        if self.search_type == "informada":
-            print(f"Usando heurística: {self.heuristic}")
-        # Implementa aquí la lógica real de los algoritmos de búsqueda
+class Node:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def get_position(self):
+        return (self.x, self.y)
