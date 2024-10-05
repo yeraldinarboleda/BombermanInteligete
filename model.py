@@ -1,17 +1,16 @@
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
-from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon ,NumberedPath
+from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath
 from random import choice
-from controllers.UninformedSearch import SearchFunctions
+from controllers.UninformedSearch import SearchFunctions, Node
 
 class BombermanModel(Model):
     def __init__(self, map_data, search_type, algorithm, heuristic):
         # Agregar variable para almacenar las posiciones visitadas
         self.path_positions = {}
         self.path_counter = 1  # Empezar la numeración desde 1
-        
-        # Código existente
+
         self.map_data = map_data
         self.grid_width = len(map_data[0])
         self.grid_height = len(map_data)
@@ -19,17 +18,17 @@ class BombermanModel(Model):
         self.schedule = RandomActivation(self)
         self.exit_position = None
         self.current_id = 0
-        
+
         self.search_type = search_type
         self.algorithm = algorithm
         self.heuristic = heuristic
-        
+
         self.path = []
 
         self.load_agents_from_map(map_data)
-        
-        self.search_functions = SearchFunctions(self.get_walkable_nodes(), self.map_data)
 
+        self.search_functions = SearchFunctions(self.get_walkable_nodes(), self.map_data)
+        self.search_functions = SearchFunctions(self.get_walkable_nodes(), self.map_data)
 
     def next_id(self):
         self.current_id += 1
@@ -74,6 +73,14 @@ class BombermanModel(Model):
                     self.grid.place_agent(exit, (x, y))
                     exit_assigned = True
                     self.exit_position = (x, y)
+                elif cell == "S":
+                    path = Path((x, y), self)
+                    self.grid.place_agent(path, (x, y))
+                    exit = Exit(self.next_id(), self)
+                    self.grid.place_agent(exit, (x, y))
+                    exit_assigned = True
+                    self.exit_position = (x, y)
+
         
         if not exit_assigned and rocks:
             random_rock_pos = choice(rocks)
@@ -124,25 +131,17 @@ class BombermanModel(Model):
             # Implementar otros algoritmos de búsqueda no informada aquí
 
         if path:
-            for i, node in enumerate(path):
-                # Colocar un número en la posición del nodo para mostrar el orden de visita
-                self.grid.place_agent(NumberedPath(node.get_position(), self, i), node.get_position())
+            # Mostrar el recorrido en la grilla
+            for i, pos in enumerate(path):
+                print(f"Posición {i+1}: {pos}")
+                numbered_path = NumberedPath(pos, self, i + 1)
+                self.grid.place_agent(numbered_path, pos)
 
-            # Mover Bomberman a la siguiente posición
-            next_pos = self.get_next_position(bomberman.pos, path)
-            if next_pos:
-                self.grid.move_agent(bomberman, next_pos)
-
-
-
-
-
-    def mark_path(self):
-        for i, node in enumerate(self.path):
-            contents = self.grid.get_cell_list_contents([node.get_position()])
-            for agent in contents:
-                if isinstance(agent, Path):
-                    agent.visit_order = i + 1
+            # Guardar el camino para que Bomberman lo siga
+            self.path = path
+            self.current_step = 0
+        else:
+            print("No se encontró un camino desde Bomberman hasta la salida.")
 
     def step(self):
         self.schedule.step()
@@ -166,12 +165,7 @@ class BombermanModel(Model):
                 self.grid.move_agent(bomberman, next_pos)
                 self.current_step += 1
         elif self.path and self.current_step >= len(self.path):
-            print("Bomberman ha llegado a la salida")
+            print("Bomberman ha llegado a la salida.")
 
-class Node:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-
-    def get_position(self):
-        return (self.x, self.y)
+        # Aplicar el algoritmo de búsqueda
+        self.apply_search_algorithm()

@@ -62,3 +62,7 @@ class NumberedPath(Agent):
         super().__init__(pos, model)
         self.pos = pos
         self.number = number
+
+    def step(self):
+        # Actualizar la posición del agente en la grilla
+        self.model.grid.move_agent(self, self.pos)

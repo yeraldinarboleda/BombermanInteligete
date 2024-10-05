@@ -2,7 +2,7 @@ from mesa.visualization.modules import CanvasGrid
 from mesa.visualization.ModularVisualization import ModularServer
 from model import BombermanModel
 from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon , NumberedPath
-from controllers.map_loader import MapLoader
+from controllers.MapLoader import MapLoader
 from menu import mostrar_menu
 
 search_type, algorithm, heuristic = mostrar_menu()
@@ -37,7 +37,6 @@ def agent_portrayal(agent):
 
     return portrayal
 
-
 # Cargar el mapa
 map_loader = MapLoader("mapas/mapa2.txt")
 map_data = map_loader.load_map()
@@ -46,7 +45,6 @@ grid_width = len(map_data[0])
 grid_height = len(map_data)
 
 grid = CanvasGrid(agent_portrayal, grid_width, grid_height, 500, 500)
-
 
 
 # Crear el servidor con los parámetros
