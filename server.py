@@ -8,30 +8,33 @@ from menu import mostrar_menu
 search_type, algorithm, heuristic = mostrar_menu()
 
 def agent_portrayal(agent):
-    portrayal = {"Shape": "image", "Layer": 1, "scale": 1.0}
+    portrayal = {"Shape": "image", "Layer": 0, "scale": 1.0}
     
     if isinstance(agent, BombermanAgent):
         portrayal["Shape"] = "iconos/bomberman.png"
+        portrayal["Layer"] = 2
     elif isinstance(agent, Bomb):
         portrayal["Shape"] = "iconos/bomba.png"
-        portrayal["Layer"] = 2
+        portrayal["Layer"] = 1
     elif isinstance(agent, Rock):
         portrayal["Shape"] = "iconos/roca.png"
-        portrayal["Layer"] = 2
+        portrayal["Layer"] = 1
     elif isinstance(agent, Metal):
         portrayal["Shape"] = "iconos/metal.png"
+        portrayal["Layer"] = 1
     elif isinstance(agent, Balloon):
         portrayal["Shape"] = "iconos/globo.png"
+        portrayal["Layer"] = 1
     elif isinstance(agent, Exit):
         portrayal["Shape"] = "iconos/salida.png"
-        portrayal["Layer"] = 2
+        portrayal["Layer"] = 1
     elif isinstance(agent, Path):
         portrayal["Shape"] = "iconos/camino.png"
         portrayal["Layer"] = 0
     elif isinstance(agent, NumberedPath):
         portrayal["Shape"] = "rect"
         portrayal["Color"] = "black"
-        portrayal["Layer"] = 1
+        portrayal["Layer"] = 3
         portrayal["text"] = str(agent.number)
         portrayal["text_color"] = "white"
 

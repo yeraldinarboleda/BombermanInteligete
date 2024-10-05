@@ -110,7 +110,7 @@ class BombermanModel(Model):
         walkable_nodes = []
         for y, row in enumerate(self.map_data):
             for x, cell in enumerate(row):
-                if cell in ["C", "C_b", "C_g"]:
+                if cell in ["C", "C_b", "C_g" ,"S"]:
                     walkable_nodes.append(Node(x, y))
         return walkable_nodes
 
@@ -127,22 +127,23 @@ class BombermanModel(Model):
             if self.algorithm == "Anchura":
                 path = self.search_functions.RecorridoEnAnchura(start_node, goal_node)
             elif self.algorithm == "Profundidad":
-                path = self.search_functions.recorrido_en_profundidad(start_node, goal_node)
-            # Implementar otros algoritmos de búsqueda no informada aquí
+                path = self.search_functions.RecorridoEnProfundidad(start_node, goal_node)
+            elif self.algorithm == "Costo Uniforme":
+                path = self.search_functions.RecorridoCostoUniforme(start_node, goal_node)
+
 
         if path:
-            # Mostrar el recorrido en la grilla
-            for i, pos in enumerate(path):
-                print(f"Posición {i+1}: {pos}")
-                numbered_path = NumberedPath(pos, self, i + 1)
-                self.grid.place_agent(numbered_path, pos)
+            # Convertir las tuplas en objetos Node
+            path_nodes = [Node(pos[0], pos[1]) for pos in path]
 
-            # Guardar el camino para que Bomberman lo siga
-            self.path = path
+            # Elimina el agente existente en la posición
+            # ... (resto del código sin cambios)
+
+            # Guarda el camino para que Bomberman lo siga
+            self.path = path_nodes[1:]  # Elimina el nodo inicial
             self.current_step = 0
         else:
             print("No se encontró un camino desde Bomberman hasta la salida.")
-
     def step(self):
         self.schedule.step()
 
@@ -169,3 +170,5 @@ class BombermanModel(Model):
 
         # Aplicar el algoritmo de búsqueda
         self.apply_search_algorithm()
+
+

@@ -33,10 +33,12 @@ class Bomb(Agent):
 class Rock(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
+        self.pos = (0,0)
 
 class Metal(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
+        self.pos = (0,0)
 
 class Path(Agent):
     def __init__(self, pos, model):
