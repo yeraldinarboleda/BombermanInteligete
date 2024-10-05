@@ -4,6 +4,7 @@ from mesa.space import MultiGrid
 from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath
 from random import choice
 from controllers.UninformedSearch import SearchFunctions, Node
+import os
 
 class BombermanModel(Model):
     def __init__(self, map_data, search_type, algorithm, heuristic):
@@ -28,7 +29,10 @@ class BombermanModel(Model):
         self.load_agents_from_map(map_data)
 
         self.search_functions = SearchFunctions(self.get_walkable_nodes(), self.map_data)
-        self.search_functions = SearchFunctions(self.get_walkable_nodes(), self.map_data)
+        self.step_count = 0
+        self.estados_folder = "estados"
+        if not os.path.exists(self.estados_folder):
+            os.makedirs(self.estados_folder)
 
     def next_id(self):
         self.current_id += 1
@@ -113,6 +117,39 @@ class BombermanModel(Model):
                 if cell in ["C", "C_b", "C_g" ,"S"]:
                     walkable_nodes.append(Node(x, y))
         return walkable_nodes
+    
+    def export_game_state(self):
+        state = []
+        for y in range(self.grid_height):
+            row = []
+            for x in range(self.grid_width):
+                cell_agents = self.grid.get_cell_list_contents((x, y))
+                cell_state = self.get_cell_state(cell_agents)
+                row.append(cell_state)
+            state.append(row)
+        
+        filename = os.path.join(self.estados_folder, f"state_{self.step_count}.txt")
+        with open(filename, 'w') as f:
+            for row in state:
+                f.write(','.join(row) + '\n')
+
+    def get_cell_state(self, cell_agents):
+        if any(isinstance(agent, BombermanAgent) for agent in cell_agents):
+            return "C_b"
+        elif any(isinstance(agent, Bomb) for agent in cell_agents):
+            return "B"
+        elif any(isinstance(agent, Rock) for agent in cell_agents):
+            return "R"
+        elif any(isinstance(agent, Metal) for agent in cell_agents):
+            return "M"
+        elif any(isinstance(agent, Balloon) for agent in cell_agents):
+            return "C_g"
+        elif any(isinstance(agent, Exit) for agent in cell_agents):
+            return "S"
+        elif any(isinstance(agent, Path) for agent in cell_agents):
+            return "C"
+        else:
+            return " "
 
     def apply_search_algorithm(self):
         bomberman = next((agent for agent in self.schedule.agents if isinstance(agent, BombermanAgent)), None)
@@ -135,10 +172,7 @@ class BombermanModel(Model):
         if path:
             # Convertir las tuplas en objetos Node
             path_nodes = [Node(pos[0], pos[1]) for pos in path]
-
-            # Elimina el agente existente en la posición
-            # ... (resto del código sin cambios)
-
+            
             # Guarda el camino para que Bomberman lo siga
             self.path = path_nodes[1:]  # Elimina el nodo inicial
             self.current_step = 0
@@ -167,6 +201,9 @@ class BombermanModel(Model):
                 self.current_step += 1
         elif self.path and self.current_step >= len(self.path):
             print("Bomberman ha llegado a la salida.")
+            
+        self.export_game_state()
+        self.step_count += 1
 
         # Aplicar el algoritmo de búsqueda
         self.apply_search_algorithm()
