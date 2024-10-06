@@ -8,7 +8,7 @@ from menu import mostrar_menu
 search_type, algorithm, heuristic = mostrar_menu()
 
 def agent_portrayal(agent):
-    portrayal = {"Shape": "image", "Layer": 0, "scale": 1.0}
+    portrayal = {"Shape": "image", "Layer": 0, "scale": 1.0 , "text": ""}
     
     if isinstance(agent, BombermanAgent):
         portrayal["Shape"] = "iconos/bomberman.png"
@@ -32,12 +32,11 @@ def agent_portrayal(agent):
         portrayal["Shape"] = "iconos/camino.png"
         portrayal["Layer"] = 0
     elif isinstance(agent, NumberedPath):
-        portrayal["Shape"] = "rect"
-        portrayal["Color"] = "black"
+        portrayal["Shape"] = "iconos/camino.png"
+        portrayal["Color"] = "write"
         portrayal["Layer"] = 3
         portrayal["text"] = str(agent.number)
-        portrayal["text_color"] = "white"
-
+        portrayal["text_color"] = "black"
     return portrayal
 
 # Cargar el mapa

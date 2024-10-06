@@ -29,14 +29,34 @@ class BombermanModel(Model):
         self.load_agents_from_map(map_data)
 
         self.search_functions = SearchFunctions(self.get_walkable_nodes(), self.map_data)
+        
         self.step_count = 0
         self.estados_folder = "estados"
         if not os.path.exists(self.estados_folder):
             os.makedirs(self.estados_folder)
+            
+        self.visit_order = {}  
+        self.visit_counter = 1  
+
+        self.apply_search_algorithm()
 
     def next_id(self):
         self.current_id += 1
         return self.current_id
+
+    def place_agent_safely(self, agent, pos):
+        # Eliminar agentes existentes del mismo tipo
+        cell_contents = self.grid.get_cell_list_contents(pos)
+        for existing_agent in cell_contents:
+            if type(existing_agent) == type(agent):
+                self.grid.remove_agent(existing_agent)
+                if existing_agent in self.schedule.agents:
+                    self.schedule.remove(existing_agent)
+        
+        # Colocar el nuevo agente
+        self.grid.place_agent(agent, pos)
+        if isinstance(agent, (BombermanAgent, Balloon)):
+            self.schedule.add(agent)
 
     def load_agents_from_map(self, map_data):
         rocks = []
@@ -44,54 +64,32 @@ class BombermanModel(Model):
         
         for y, row in enumerate(map_data):
             for x, cell in enumerate(row):
+                pos = (x, y)
                 if cell == "C":
-                    path = Path((x, y), self)
-                    self.grid.place_agent(path, (x, y))
+                    self.place_agent_safely(Path(pos, self), pos)
                 elif cell == "C_b":
-                    path = Path((x, y), self)
-                    self.grid.place_agent(path, (x, y))
-                    bomberman = BombermanAgent(self.next_id(), self)
-                    self.grid.place_agent(bomberman, (x, y))
-                    self.schedule.add(bomberman)
+                    self.place_agent_safely(Path(pos, self), pos)
+                    self.place_agent_safely(BombermanAgent(self.next_id(), self), pos)
                 elif cell == "R":
-                    path = Path((x, y), self)
-                    self.grid.place_agent(path, (x, y))
-                    rock = Rock(self.next_id(), self)
-                    self.grid.place_agent(rock, (x, y))
-                    rocks.append((x, y))
+                    self.place_agent_safely(Path(pos, self), pos)
+                    self.place_agent_safely(Rock(self.next_id(), self), pos)
+                    rocks.append(pos)
                 elif cell == "M":
-                    metal = Metal(self.next_id(), self)
-                    self.grid.place_agent(metal, (x, y))
+                    self.place_agent_safely(Metal(self.next_id(), self), pos)
                 elif cell == "C_g":
-                    path = Path((x, y), self)
-                    self.grid.place_agent(path, (x, y))
-                    balloon = Balloon(self.next_id(), self)
-                    self.grid.place_agent(balloon, (x, y))
-                    self.schedule.add(balloon)
+                    self.place_agent_safely(Path(pos, self), pos)
+                    self.place_agent_safely(Balloon(self.next_id(), self), pos)
                 elif cell == "R_s":
-                    path = Path((x, y), self)
-                    self.grid.place_agent(path, (x, y))
-                    rock = Rock(self.next_id(), self)
-                    exit = Exit(self.next_id(), self)
-                    self.grid.place_agent(rock, (x, y))
-                    self.grid.place_agent(exit, (x, y))
+                    self.place_agent_safely(Path(pos, self), pos)
+                    self.place_agent_safely(Rock(self.next_id(), self), pos)
+                    self.place_agent_safely(Exit(self.next_id(), self), pos)
                     exit_assigned = True
-                    self.exit_position = (x, y)
+                    self.exit_position = pos
                 elif cell == "S":
-                    path = Path((x, y), self)
-                    self.grid.place_agent(path, (x, y))
-                    exit = Exit(self.next_id(), self)
-                    self.grid.place_agent(exit, (x, y))
+                    self.place_agent_safely(Path(pos, self), pos)
+                    self.place_agent_safely(Exit(self.next_id(), self), pos)
                     exit_assigned = True
-                    self.exit_position = (x, y)
-
-        
-        if not exit_assigned and rocks:
-            random_rock_pos = choice(rocks)
-            exit = Exit(self.next_id(), self)
-            self.grid.place_agent(exit, random_rock_pos)
-            self.exit_position = random_rock_pos
-            print(f"Salida asignada aleatoriamente en {random_rock_pos}")
+                    self.exit_position = pos
 
     def eliminar_agentes_almacenados(self, pos):
         agentes = self.grid.get_neighbors(pos, moore=True, include_center=True)
@@ -162,12 +160,11 @@ class BombermanModel(Model):
         path = None
         if self.search_type == "no-informada":
             if self.algorithm == "Anchura":
-                path = self.search_functions.RecorridoEnAnchura(start_node, goal_node)
+                path, self.visit_order = self.search_functions.RecorridoEnAnchura(start_node, goal_node)
             elif self.algorithm == "Profundidad":
-                path = self.search_functions.RecorridoEnProfundidad(start_node, goal_node)
+                path, self.visit_order = self.search_functions.RecorridoEnProfundidad(start_node, goal_node)
             elif self.algorithm == "Costo Uniforme":
-                path = self.search_functions.RecorridoCostoUniforme(start_node, goal_node)
-
+                path, self.visit_order = self.search_functions.RecorridoCostoUniforme(start_node, goal_node)
 
         if path:
             # Convertir las tuplas en objetos Node
@@ -176,8 +173,14 @@ class BombermanModel(Model):
             # Guarda el camino para que Bomberman lo siga
             self.path = path_nodes[1:]  # Elimina el nodo inicial
             self.current_step = 0
+
+            # Crear NumberedPath agents para mostrar el orden de visita
+            for pos, order in self.visit_order.items():
+                self.place_agent_safely(NumberedPath(pos, self, order), pos)
         else:
             print("No se encontró un camino desde Bomberman hasta la salida.")
+            
+            
     def step(self):
         self.schedule.step()
 
@@ -204,8 +207,5 @@ class BombermanModel(Model):
             
         self.export_game_state()
         self.step_count += 1
-
-        # Aplicar el algoritmo de búsqueda
-        self.apply_search_algorithm()
 
 

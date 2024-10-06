@@ -1,7 +1,6 @@
 from collections import deque
 from controllers.Tree import TreeG
-import heapq  # Para usar una cola de prioridad
-
+import heapq
 
 class SearchFunctions:
     def __init__(self, nodos, matriz):
@@ -9,95 +8,91 @@ class SearchFunctions:
         self.matriz = matriz
     
     def RecorridoEnAnchura(self, inicio, objetivo):
-        # Crear un árbol para seguir el camino explorado
-        tree = TreeG(inicio.get_position())  # Crear un árbol con el nodo raíz en la posición inicial
-
+        tree = TreeG(inicio.get_position())
         self.cola = deque([inicio])
         self.nodos_visitados = set()
         self.nodos_visitados.add(inicio.get_position())
+        visit_order = {}
+        visit_counter = 1
 
         while self.cola:
             nodo_actual = self.cola.popleft()
+            visit_order[nodo_actual.get_position()] = visit_counter
+            visit_counter += 1
+
             if nodo_actual.get_position() == objetivo.get_position():
-                # Si encontramos el objetivo, reconstruir el camino usando el árbol
                 final_node = tree.find_node(nodo_actual.get_position())
-                return final_node.get_path()
+                return final_node.get_path(), visit_order
 
             hijos = self.obtener_nodos_adyacentes(nodo_actual)
             for hijo in hijos:
                 if hijo.get_position() not in self.nodos_visitados:
                     self.cola.append(hijo)
                     self.nodos_visitados.add(hijo.get_position())
-                    # Agregar el nodo hijo al árbol
                     tree.add_node(hijo.get_position(), nodo_actual.get_position())
 
-        return None
+        return None, visit_order
 
-    
     def RecorridoEnProfundidad(self, inicio, objetivo):
-        # Crear un árbol para seguir el camino explorado
-        tree = TreeG(inicio.get_position())  # Crear un árbol con el nodo raíz en la posición inicial
-
-        self.pila = [inicio]  # Usar una pila en lugar de una cola
+        tree = TreeG(inicio.get_position())
+        self.pila = [inicio]
         self.nodos_visitados = set()
         self.nodos_visitados.add(inicio.get_position())
+        visit_order = {}
+        visit_counter = 1
 
         while self.pila:
-            nodo_actual = self.pila.pop()  # Sacar el último nodo de la pila
+            nodo_actual = self.pila.pop()
+            visit_order[nodo_actual.get_position()] = visit_counter
+            visit_counter += 1
+
             if nodo_actual.get_position() == objetivo.get_position():
-                # Si encontramos el objetivo, reconstruir el camino usando el árbol
                 final_node = tree.find_node(nodo_actual.get_position())
-                return final_node.get_path()
+                return final_node.get_path(), visit_order
 
             hijos = self.obtener_nodos_adyacentes(nodo_actual)
             for hijo in hijos:
                 if hijo.get_position() not in self.nodos_visitados:
-                    self.pila.append(hijo)  # Añadir los nodos hijos a la pila
+                    self.pila.append(hijo)
                     self.nodos_visitados.add(hijo.get_position())
-                    # Agregar el nodo hijo al árbol
                     tree.add_node(hijo.get_position(), nodo_actual.get_position())
 
-        return None
-    
+        return None, visit_order
 
     def RecorridoCostoUniforme(self, inicio, objetivo):
-        # Crear un árbol para seguir el camino explorado
-        tree = TreeG(inicio.get_position())  # Crear un árbol con el nodo raíz en la posición inicial
-
-        # Cola de prioridad (heap), donde cada elemento es una tupla (costo, id_unico, nodo)
+        tree = TreeG(inicio.get_position())
         self.cola_prioridad = []
-        heapq.heappush(self.cola_prioridad, (0, 0, inicio))  # El costo inicial es 0 y asignamos un ID único 0
+        heapq.heappush(self.cola_prioridad, (0, 0, inicio))
         self.nodos_visitados = set()
-        self.costos_acumulados = {inicio.get_position(): 0}  # Guardar los costos acumulados
-        contador_nodos = 0  # Para garantizar un id único para cada nodo
+        self.costos_acumulados = {inicio.get_position(): 0}
+        contador_nodos = 0
+        visit_order = {}
+        visit_counter = 1
 
         while self.cola_prioridad:
-            # Extraer el nodo con el menor costo
-            costo_actual, id_nodo, nodo_actual = heapq.heappop(self.cola_prioridad)
-            
-            # Si el nodo actual es el objetivo, reconstruir el camino usando el árbol
+            costo_actual, _, nodo_actual = heapq.heappop(self.cola_prioridad)
+            visit_order[nodo_actual.get_position()] = visit_counter
+            visit_counter += 1
+
             if nodo_actual.get_position() == objetivo.get_position():
                 final_node = tree.find_node(nodo_actual.get_position())
-                return final_node.get_path()
+                return final_node.get_path(), visit_order
 
-            # Si el nodo no ha sido visitado aún
             if nodo_actual.get_position() not in self.nodos_visitados:
                 self.nodos_visitados.add(nodo_actual.get_position())
                 
-                # Obtener los nodos adyacentes (vecinos)
                 hijos = self.obtener_nodos_adyacentes(nodo_actual)
                 for hijo in hijos:
                     hijo_pos = hijo.get_position()
-                    nuevo_costo = costo_actual + self.obtener_costo(nodo_actual, hijo)  # Sumar el costo del nodo hijo
+                    nuevo_costo = costo_actual + self.obtener_costo(nodo_actual, hijo)
                     
-                    # Si el hijo no ha sido visitado o si encontramos un camino más barato hacia ese hijo
                     if hijo_pos not in self.costos_acumulados or nuevo_costo < self.costos_acumulados[hijo_pos]:
                         self.costos_acumulados[hijo_pos] = nuevo_costo
-                        contador_nodos += 1  # Incrementamos el contador de nodos para el identificador único
-                        heapq.heappush(self.cola_prioridad, (nuevo_costo, contador_nodos, hijo))  # Añadir el hijo con su costo y un ID único
-                        tree.add_node(hijo_pos, nodo_actual.get_position())  # Agregar el nodo hijo al árbol
+                        contador_nodos += 1
+                        heapq.heappush(self.cola_prioridad, (nuevo_costo, contador_nodos, hijo))
+                        tree.add_node(hijo_pos, nodo_actual.get_position())
 
-        return None  # Si no se encuentra el objetivo
+        return None, visit_order
     
     def obtener_costo(self, nodo1, nodo2):
         # El costo entre cualquier nodo es siempre 1
