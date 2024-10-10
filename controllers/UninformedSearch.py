@@ -1,7 +1,7 @@
 from collections import deque
 from controllers.Tree import TreeG
 import heapq
-import random
+#import random
 
 class SearchFunctions:
     def __init__(self, nodos, matriz):
@@ -57,7 +57,6 @@ class SearchFunctions:
             for hijo in hijos:
                 if hijo.get_position() not in self.nodos_visitados:
                     self.pila.append(hijo)
-                    print(f"Agregando a pila: {hijo.get_position()}")
                     self.nodos_visitados.add(hijo.get_position())
                     tree.add_node(hijo.get_position(), nodo_actual.get_position())
 
@@ -120,13 +119,6 @@ class SearchFunctions:
             if n.x == nodo.x and n.y == nodo.y:
                 return False
         return True
-
-    def reconstruir_camino(self, nodo_actual):
-        camino = []
-        while nodo_actual is not None:
-            camino.append(nodo_actual)
-            nodo_actual = self.padre[nodo_actual]
-        return list(reversed(camino))
 
 class Node:
     def __init__(self, x, y):

@@ -60,8 +60,6 @@ class BombermanModel(Model):
 
     def load_agents_from_map(self, map_data):
         rocks = []
-        exit_assigned = False
-        
         for y, row in enumerate(map_data):
             for x, cell in enumerate(row):
                 pos = (x, y)
@@ -83,14 +81,13 @@ class BombermanModel(Model):
                     self.place_agent_safely(Path(pos, self), pos)
                     self.place_agent_safely(Rock(self.next_id(), self), pos)
                     self.place_agent_safely(Exit(self.next_id(), self), pos)
-                    exit_assigned = True
                     self.exit_position = pos
                 elif cell == "S":
                     self.place_agent_safely(Path(pos, self), pos)
                     self.place_agent_safely(Exit(self.next_id(), self), pos)
-                    exit_assigned = True
                     self.exit_position = pos
-
+        """
+        
     def eliminar_agentes_almacenados(self, pos):
         agentes = self.grid.get_neighbors(pos, moore=True, include_center=True)
 
@@ -107,7 +104,11 @@ class BombermanModel(Model):
                 print(f"Roca {agente.unique_id} destruida en {agente.pos}")
             elif isinstance(agente, Metal):
                 print(f"Metal {agente.unique_id} en {agente.pos} es indestructible")
-
+            elif isinstance(agente, Exit):
+                print(f"Salida no debe ser eliminada en {agente.pos}")
+            elif isinstance(agente, BombermanAgent):
+                print(f"Bomberman no debe ser eliminado en {agente.pos}")
+"""
     def get_walkable_nodes(self):
         walkable_nodes = []
         for y, row in enumerate(self.map_data):
@@ -118,6 +119,22 @@ class BombermanModel(Model):
     
     def export_game_state(self):
         state = []
+        
+        # Crear el directorio específico según el algoritmo de búsqueda
+        if self.algorithm == "Profundidad":
+            folder_path = os.path.join(self.estados_folder, "profundidad")
+        elif self.algorithm == "Anchura":
+            folder_path = os.path.join(self.estados_folder, "anchura")
+        elif self.algorithm == "Costo Uniforme":
+            folder_path = os.path.join(self.estados_folder, "costo_uniforme")
+        else:
+            folder_path = self.estados_folder  # Carpeta por defecto si no se especifica el algoritmo
+
+        # Crear la carpeta si no existe
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        
+        # Recorrer la grilla y obtener el estado actual
         for y in range(self.grid_height):
             row = []
             for x in range(self.grid_width):
@@ -126,10 +143,12 @@ class BombermanModel(Model):
                 row.append(cell_state)
             state.append(row)
         
-        filename = os.path.join(self.estados_folder, f"state_{self.step_count}.txt")
+        # Guardar el archivo de estado en la carpeta correspondiente
+        filename = os.path.join(folder_path, f"state_{self.step_count}.txt")
         with open(filename, 'w') as f:
             for row in state:
-                f.write(','.join(row) + '\n')
+                f.write(''.join(row) + '\n')
+
 
     def get_cell_state(self, cell_agents):
         if any(isinstance(agent, BombermanAgent) for agent in cell_agents):
@@ -198,22 +217,20 @@ class BombermanModel(Model):
                 self.eliminar_agentes_almacenados(agente.pos)
                 self.grid.remove_agent(agente)
                 self.schedule.remove(agente)
-                
-        bomberman_vivo = any(isinstance(agente, BombermanAgent) for agente in self.schedule.agents)
-        
-        if not bomberman_vivo:
-            self.__init__(map_data=self.map_data, search_type=self.search_type, algorithm=self.algorithm, heuristic=self.heuristic)
-            print("Simulación reiniciada")
 
         if self.path and self.current_step < len(self.path):
             bomberman = next((agent for agent in self.schedule.agents if isinstance(agent, BombermanAgent)), None)
             if bomberman:
                 next_pos = self.path[self.current_step].get_position()
+                # Mueve a Bomberman
                 self.grid.move_agent(bomberman, next_pos)
                 self.current_step += 1
         elif self.path and self.current_step >= len(self.path):
-            print("Bomberman ha llegado a la salida.")
+
+            # Pausar la ejecución
+            self.running = False  # Pausa la simulación
             
+
         self.export_game_state()
         self.step_count += 1
 
