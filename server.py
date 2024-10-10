@@ -1,15 +1,14 @@
 from mesa.visualization.modules import CanvasGrid
 from mesa.visualization.ModularVisualization import ModularServer
 from model import BombermanModel
-from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon , NumberedPath
+from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath
 from controllers.MapLoader import MapLoader
-from menu import mostrar_menu
+from mesa.visualization.UserParam import Choice
 
-search_type, algorithm, heuristic = mostrar_menu()
 
+# Define la grilla
 def agent_portrayal(agent):
-    portrayal = {"Shape": "image", "Layer": 0, "scale": 1.0 , "text": ""}
-    
+    portrayal = {"Shape": "image", "Layer": 0, "scale": 1.0, "text": ""}
     if isinstance(agent, BombermanAgent):
         portrayal["Shape"] = "iconos/bomberman.png"
         portrayal["Layer"] = 2
@@ -33,33 +32,35 @@ def agent_portrayal(agent):
         portrayal["Layer"] = 0
     elif isinstance(agent, NumberedPath):
         portrayal["Shape"] = "iconos/camino.png"
-        portrayal["Color"] = "write"
+        portrayal["Color"] = "white"
         portrayal["Layer"] = 3
         portrayal["text"] = str(agent.number)
         portrayal["text_color"] = "black"
     return portrayal
 
-# Cargar el mapa
+# Load the map
 map_loader = MapLoader("mapas/mapa2.txt")
 map_data = map_loader.load_map()
+
+# Define user settable parameters
+model_params = {
+    "map_data": map_data,  # Include map_data as a parameter
+    "search_type": Choice("Search Type", value="no-informada", choices=["no-informada", "informada"]),
+    "algorithm": Choice("Algorithm", value="Anchura", choices=["Anchura", "Profundidad", "Costo Uniforme"]),
+    "heuristic": Choice("Heuristic", value="Manhattan", choices=["Manhattan", "Euclidiana"])
+}
+
 
 grid_width = len(map_data[0])
 grid_height = len(map_data)
 
 grid = CanvasGrid(agent_portrayal, grid_width, grid_height, 500, 500)
 
-
-# Crear el servidor con los parámetros
 server = ModularServer(
     BombermanModel,
     [grid],
     "Bomberman Simulation",
-    {
-       "map_data": map_data,
-        "search_type": search_type,
-        "algorithm": algorithm,
-        "heuristic": heuristic
-    }
+    model_params
 )
 
 server.port = 8521

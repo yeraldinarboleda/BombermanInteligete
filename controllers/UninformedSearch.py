@@ -1,6 +1,7 @@
 from collections import deque
 from controllers.Tree import TreeG
 import heapq
+import random
 
 class SearchFunctions:
     def __init__(self, nodos, matriz):
@@ -8,6 +9,7 @@ class SearchFunctions:
         self.matriz = matriz
     
     def RecorridoEnAnchura(self, inicio, objetivo):
+        print("Recorrido en anchura")
         tree = TreeG(inicio.get_position())
         self.cola = deque([inicio])
         self.nodos_visitados = set()
@@ -34,6 +36,7 @@ class SearchFunctions:
         return None, visit_order
 
     def RecorridoEnProfundidad(self, inicio, objetivo):
+        print("Recorrido en Profundidad")
         tree = TreeG(inicio.get_position())
         self.pila = [inicio]
         self.nodos_visitados = set()
@@ -54,12 +57,14 @@ class SearchFunctions:
             for hijo in hijos:
                 if hijo.get_position() not in self.nodos_visitados:
                     self.pila.append(hijo)
+                    print(f"Agregando a pila: {hijo.get_position()}")
                     self.nodos_visitados.add(hijo.get_position())
                     tree.add_node(hijo.get_position(), nodo_actual.get_position())
 
         return None, visit_order
 
     def RecorridoCostoUniforme(self, inicio, objetivo):
+        print("Recorrido costo uniforme")
         tree = TreeG(inicio.get_position())
         self.cola_prioridad = []
         heapq.heappush(self.cola_prioridad, (0, 0, inicio))
@@ -84,7 +89,7 @@ class SearchFunctions:
                 hijos = self.obtener_nodos_adyacentes(nodo_actual)
                 for hijo in hijos:
                     hijo_pos = hijo.get_position()
-                    nuevo_costo = costo_actual + self.obtener_costo(nodo_actual, hijo)
+                    nuevo_costo = costo_actual + self.obtener_costo()
                     
                     if hijo_pos not in self.costos_acumulados or nuevo_costo < self.costos_acumulados[hijo_pos]:
                         self.costos_acumulados[hijo_pos] = nuevo_costo
@@ -94,8 +99,9 @@ class SearchFunctions:
 
         return None, visit_order
     
-    def obtener_costo(self, nodo1, nodo2):
-        # El costo entre cualquier nodo es siempre 1
+    def obtener_costo(self):
+        # El costo entre cualquier nodo es un nurero random entre 1 y 10
+        #return random.randint(1, 10)
         return 1
    
     

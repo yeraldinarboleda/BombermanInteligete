@@ -2,7 +2,6 @@ from mesa import Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
 from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath
-from random import choice
 from controllers.UninformedSearch import SearchFunctions, Node
 import os
 
@@ -20,6 +19,7 @@ class BombermanModel(Model):
         self.exit_position = None
         self.current_id = 0
 
+        
         self.search_type = search_type
         self.algorithm = algorithm
         self.heuristic = heuristic
@@ -165,7 +165,16 @@ class BombermanModel(Model):
                 path, self.visit_order = self.search_functions.RecorridoEnProfundidad(start_node, goal_node)
             elif self.algorithm == "Costo Uniforme":
                 path, self.visit_order = self.search_functions.RecorridoCostoUniforme(start_node, goal_node)
-
+        if self.search_type == "informada":
+            if self.algorithm == "Beam Search":
+                # Implement Beam Search
+                pass
+            elif self.algorithm == "Hill climbing":
+                # Implement Hill Climbing
+                pass
+            elif self.algorithm == "A*":
+                # Implement A*
+                pass
         if path:
             # Convertir las tuplas en objetos Node
             path_nodes = [Node(pos[0], pos[1]) for pos in path]
