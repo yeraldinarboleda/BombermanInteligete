@@ -3,8 +3,8 @@ from mesa.time import RandomActivation
 from mesa.space import MultiGrid
 from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath
 from controllers.UninformedSearch import SearchFunctions, Node
+from controllers.InformedSearch import InformedSearch
 import os
-
 class BombermanModel(Model):
     def __init__(self, map_data, search_type, algorithm, heuristic):
         # Agregar variable para almacenar las posiciones visitadas
@@ -45,21 +45,18 @@ class BombermanModel(Model):
         return self.current_id
 
     def place_agent_safely(self, agent, pos):
-        # Eliminar agentes existentes del mismo tipo
         cell_contents = self.grid.get_cell_list_contents(pos)
-        for existing_agent in cell_contents:
-            if type(existing_agent) == type(agent):
-                self.grid.remove_agent(existing_agent)
-                if existing_agent in self.schedule.agents:
-                    self.schedule.remove(existing_agent)
         
-        # Colocar el nuevo agente
-        self.grid.place_agent(agent, pos)
-        if isinstance(agent, (BombermanAgent, Balloon)):
+        # Permitir la coexistencia de NumberedPath con otros agentes
+        if isinstance(agent, NumberedPath):
+            self.grid.place_agent(agent, pos)
             self.schedule.add(agent)
+        elif not any(isinstance(existing_agent, type(agent)) for existing_agent in cell_contents):
+            self.grid.place_agent(agent, pos)
+            self.schedule.add(agent)
+    
 
     def load_agents_from_map(self, map_data):
-        rocks = []
         for y, row in enumerate(map_data):
             for x, cell in enumerate(row):
                 pos = (x, y)
@@ -71,7 +68,6 @@ class BombermanModel(Model):
                 elif cell == "R":
                     self.place_agent_safely(Path(pos, self), pos)
                     self.place_agent_safely(Rock(self.next_id(), self), pos)
-                    rocks.append(pos)
                 elif cell == "M":
                     self.place_agent_safely(Metal(self.next_id(), self), pos)
                 elif cell == "C_g":
@@ -127,6 +123,12 @@ class BombermanModel(Model):
             folder_path = os.path.join(self.estados_folder, "anchura")
         elif self.algorithm == "Costo Uniforme":
             folder_path = os.path.join(self.estados_folder, "costo_uniforme")
+        elif self.algorithm == "Beam Search":
+            folder_path = os.path.join(self.estados_folder, "beam_search")
+        elif self.algorithm == "Hill Climbing":
+            folder_path = os.path.join(self.estados_folder, "hill_climbing")
+        elif self.algorithm == "A*":
+            folder_path = os.path.join(self.estados_folder, "A*")
         else:
             folder_path = self.estados_folder  # Carpeta por defecto si no se especifica el algoritmo
 
@@ -151,32 +153,38 @@ class BombermanModel(Model):
 
 
     def get_cell_state(self, cell_agents):
-        if any(isinstance(agent, BombermanAgent) for agent in cell_agents):
-            return "C_b"
-        elif any(isinstance(agent, Bomb) for agent in cell_agents):
-            return "B"
-        elif any(isinstance(agent, Rock) for agent in cell_agents):
-            return "R"
-        elif any(isinstance(agent, Metal) for agent in cell_agents):
-            return "M"
-        elif any(isinstance(agent, Balloon) for agent in cell_agents):
-            return "C_g"
-        elif any(isinstance(agent, Exit) for agent in cell_agents):
-            return "S"
-        elif any(isinstance(agent, Path) for agent in cell_agents):
-            return "C"
-        else:
-            return " "
+        state = " "
+        for agent in cell_agents:
+            if isinstance(agent, BombermanAgent):
+                return "C_b"
+            elif isinstance(agent, Bomb):
+                return "B"
+            elif isinstance(agent, Rock) and any(isinstance(a, Exit) for a in cell_agents):
+                return "R_s"
+            elif isinstance(agent, Rock):
+                state = "R"
+            elif isinstance(agent, Metal):
+                return "M"
+            elif isinstance(agent, Balloon):
+                state = "C_g"
+            elif isinstance(agent, Exit):
+                state = "S"
+            elif isinstance(agent, Path) and state == " ":
+                state = "C"
+        return state
 
     def apply_search_algorithm(self):
         bomberman = next((agent for agent in self.schedule.agents if isinstance(agent, BombermanAgent)), None)
         if not bomberman or not self.exit_position:
             return
 
+        # Define los nodos de inicio y objetivo
         start_node = Node(bomberman.pos[0], bomberman.pos[1])
         goal_node = Node(self.exit_position[0], self.exit_position[1])
 
         path = None
+
+        # Selección del algoritmo de búsqueda (informada o no informada)
         if self.search_type == "no-informada":
             if self.algorithm == "Anchura":
                 path, self.visit_order = self.search_functions.RecorridoEnAnchura(start_node, goal_node)
@@ -184,52 +192,65 @@ class BombermanModel(Model):
                 path, self.visit_order = self.search_functions.RecorridoEnProfundidad(start_node, goal_node)
             elif self.algorithm == "Costo Uniforme":
                 path, self.visit_order = self.search_functions.RecorridoCostoUniforme(start_node, goal_node)
+
         if self.search_type == "informada":
+            search_functions = InformedSearch(self.get_walkable_nodes(), self.map_data)
             if self.algorithm == "Beam Search":
-                # Implement Beam Search
-                pass
-            elif self.algorithm == "Hill climbing":
-                # Implement Hill Climbing
-                pass
+                path, self.visit_order = search_functions.beam_search(start_node, goal_node)
+            elif self.algorithm == "Hill Climbing":
+                path, self.visit_order = search_functions.hill_climbing(start_node, goal_node)
             elif self.algorithm == "A*":
-                # Implement A*
-                pass
+                path, self.visit_order = search_functions.a_star(start_node, goal_node)
+
         if path:
-            # Convertir las tuplas en objetos Node
-            path_nodes = [Node(pos[0], pos[1]) for pos in path]
-            
+            # Crear los agentes NumberedPath que muestran el orden de visita en cada celda del camino
+            for pos, order in self.visit_order.items():
+                numbered_path_agent = NumberedPath(self.next_id(), self, order)
+                self.place_agent_safely(numbered_path_agent, pos)
+
             # Guarda el camino para que Bomberman lo siga
+            path_nodes = [Node(pos[0], pos[1]) for pos in path]  # Convierte las posiciones en objetos Node
             self.path = path_nodes[1:]  # Elimina el nodo inicial
             self.current_step = 0
 
-            # Crear NumberedPath agents para mostrar el orden de visita
-            for pos, order in self.visit_order.items():
-                self.place_agent_safely(NumberedPath(pos, self, order), pos)
         else:
             print("No se encontró un camino desde Bomberman hasta la salida.")
-            
+
+    
+    def handle_explosion(self, pos):
+        cell_contents = list(self.grid.get_cell_list_contents(pos))
+        for agent in cell_contents:
+            if isinstance(agent, Rock) and not any(isinstance(a, Exit) for a in cell_contents):
+                self.grid.remove_agent(agent)
+                self.schedule.remove(agent)
+            elif isinstance(agent, Balloon):
+                self.grid.remove_agent(agent)
+                self.schedule.remove(agent)   
             
     def step(self):
         self.schedule.step()
+        
+        for agent in self.schedule.agents:
+            if isinstance(agent, Bomb) and agent.timer <= 0:
+                self.handle_explosion(agent.pos)
+                self.grid.remove_agent(agent)
+                self.schedule.remove(agent)
 
-        for agente in self.schedule.agents:
+        """for agente in self.schedule.agents:
             if isinstance(agente, Bomb) and agente.timer <= 0:
                 self.eliminar_agentes_almacenados(agente.pos)
                 self.grid.remove_agent(agente)
-                self.schedule.remove(agente)
+                self.schedule.remove(agente)"""
 
         if self.path and self.current_step < len(self.path):
             bomberman = next((agent for agent in self.schedule.agents if isinstance(agent, BombermanAgent)), None)
             if bomberman:
                 next_pos = self.path[self.current_step].get_position()
-                # Mueve a Bomberman
+                # Mover a Bomberman sin eliminar otros agentes
                 self.grid.move_agent(bomberman, next_pos)
                 self.current_step += 1
         elif self.path and self.current_step >= len(self.path):
-
-            # Pausar la ejecución
             self.running = False  # Pausa la simulación
-            
 
         self.export_game_state()
         self.step_count += 1

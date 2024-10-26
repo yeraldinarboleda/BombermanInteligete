@@ -1,6 +1,7 @@
 from collections import deque
 from controllers.Tree import TreeG
 import heapq
+from controllers.Node import Node
 #import random
 
 class SearchFunctions:
@@ -53,7 +54,12 @@ class SearchFunctions:
                 final_node = tree.find_node(nodo_actual.get_position())
                 return final_node.get_path(), visit_order
 
-            hijos = self.obtener_nodos_adyacentes_profundidad(nodo_actual)
+            # Obtener nodos adyacentes en el orden de prioridad
+            hijos = self.obtener_nodos_adyacentes(nodo_actual)
+            
+            # Invertir el orden de los hijos antes de agregarlos a la pila
+            hijos = hijos[::-1]  # Esto asegura que se mantenga la prioridad en el recorrido en profundidad
+            
             for hijo in hijos:
                 if hijo.get_position() not in self.nodos_visitados:
                     self.pila.append(hijo)
@@ -104,15 +110,15 @@ class SearchFunctions:
         return 1
    
     
-    def obtener_nodos_adyacentes_profundidad(self, nodo):
+    """def obtener_nodos_adyacentes_profundidad(self, nodo):
         adyacentes = []
-        for dx, dy in [(0, -1), (0, 1),  (-1, 0),(1, 0)]:
+        for dx, dy in [(1, 0), (0, -1),(0, 1),(-1, 0)]:
             x, y = nodo.x + dx, nodo.y + dy
             if 0 <= x < len(self.matriz[0]) and 0 <= y < len(self.matriz):
                 if self.matriz[y][x] in ["C", "C_b", "C_g","S","R_s"]:
                     adyacentes.append(Node(x, y))
                     
-        return adyacentes
+        return adyacentes"""
     
     def obtener_nodos_adyacentes(self, nodo):
         adyacentes = []
@@ -130,10 +136,3 @@ class SearchFunctions:
                 return False
         return True
 
-class Node:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-
-    def get_position(self):
-        return (self.x, self.y)
