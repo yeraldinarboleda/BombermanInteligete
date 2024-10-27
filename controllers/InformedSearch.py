@@ -97,42 +97,79 @@ class InformedSearch:
         #tree.print_tree()
         return None, visit_order
 
+
+
     def hill_climbing(self, inicio, objetivo):
-        print("Hill Climbing")
+        print("Hill Climbing con retroceso")
         tree = TreeG(inicio.get_position())
-        current_node = inicio
-        visited_nodes = set()
-        visited_nodes.add(current_node.get_position())
+        pila = [(inicio, 0)]  # Empezamos desde el nivel 1, evitando el nivel 0
+        visitados = set()
         visit_order = {}
         visit_counter = 1
-        visit_order[current_node.get_position()] = visit_counter
+        niveles_pendientes = {1: [(inicio, 1)]}  # Guardamos nodos pendientes por nivel, comenzando en nivel 1
 
-        while current_node.get_position() != objetivo.get_position():
+        while pila:
+            current_node, nivel_actual = pila.pop()
+
+            # Evitar nodos ya visitados
+            if current_node.get_position() in visitados:
+                continue
+
+            # Marcar el nodo como visitado y registrar el orden de visita
+            print(f"Visitando nodo: {current_node.get_position()} en el nivel {nivel_actual}")
+            visitados.add(current_node.get_position())
+            visit_order[current_node.get_position()] = visit_counter
             visit_counter += 1
-            neighbors = self.obtener_nodos_adyacentes(current_node)
-            next_node = min(neighbors, key=lambda node: self.heuristic(node, objetivo))
 
-            if self.heuristic(next_node, objetivo) >= self.heuristic(current_node, objetivo):
+            # Verificar si es el nodo objetivo
+            if current_node.get_position() == objetivo.get_position():
+                final_node = tree.find_node(current_node.get_position())
                 tree_dict = tree.to_dict()
                 print(tree_dict)
-                #tree.print_tree()
-                return None, visit_order  # No se encontró una mejora
+                return final_node.get_path(), visit_order
 
-            next_node.parent = current_node  # Asigna manualmente el padre
-            current_node = next_node
+            # Obtener los hijos no visitados
+            hijos_no_visitados = [hijo for hijo in self.obtener_nodos_adyacentes(current_node)
+                                if hijo.get_position() not in visitados]
+
+            # Ordenar los hijos no visitados utilizando la heurística
+            hijos_no_visitados.sort(key=lambda node: self.heuristic(node, objetivo))
+
+            if hijos_no_visitados:
+                # Añadir hijos a la pila en orden inverso y registrar en niveles pendientes
+                for hijo in reversed(hijos_no_visitados):
+                    pila.append((hijo, nivel_actual + 1))
+                    tree.add_node(hijo.get_position(), current_node.get_position())
+                # Guardar nodos pendientes en este nivel
+                niveles_pendientes[nivel_actual + 1] = niveles_pendientes.get(nivel_actual + 1, []) + [(hijo, nivel_actual + 1) for hijo in hijos_no_visitados]
+                print(f"Nivel {nivel_actual + 1}: Explorando los hijos de {current_node.get_position()} con heurística.")
+            else:
+                # Si llegamos a una hoja, explorar los niveles pendientes en orden ascendente, comenzando en nivel 1
+                print(f"Llegamos a una hoja en el nivel {nivel_actual}. Iniciando retroceso a niveles pendientes.")
+                encontrado_nodo_pendiente = False
+
+                # Reiniciar desde el siguiente nivel pendiente con nodos no visitados
+                for nivel, nodos_pendientes in sorted(niveles_pendientes.items()):
+                    if nivel > 0:  # Evitar el nivel 0
+                        nodos_no_visitados = [(nodo, nivel) for nodo, _ in nodos_pendientes if nodo.get_position() not in visitados]
+                        if nodos_no_visitados:
+                            pila.extend(nodos_no_visitados)
+                            encontrado_nodo_pendiente = True
+                            print(f"Explorando el siguiente nivel pendiente: Nivel {nivel}")
+                            break
+
+                if not encontrado_nodo_pendiente:
+                    print("No hay más nodos por explorar. Objetivo no encontrado.")
+                    break
+
+        return None, visit_order  # Si no se encuentra el nodo objetivo
 
 
-            current_node = next_node
-            visited_nodes.add(current_node.get_position())
-            visit_order[current_node.get_position()] = visit_counter
-            tree.add_node(current_node.get_position(), current_node.parent.get_position())
 
-        final_node = tree.find_node(current_node.get_position())
-        tree_dict = tree.to_dict()
-        print(tree_dict)
-        #tree.print_tree()
-        return final_node.get_path(), visit_order
-    
+
+
+
+
     
     
     
@@ -157,6 +194,6 @@ class InformedSearch:
         for dx, dy in [(1, 0),(0, -1),(-1, 0), (0, 1)]:
             x, y = nodo.x + dx, nodo.y + dy
             if 0 <= x < len(self.matriz[0]) and 0 <= y < len(self.matriz):
-                if self.matriz[y][x] in ["C", "C_b", "C_g", "S", "R_s"]:
+                if self.matriz[y][x] in ["C", "C_b", "C_g", "S", "R_s","R"]:
                     adyacentes.append(Node(x, y))
         return adyacentes
