@@ -7,13 +7,81 @@ class BombermanAgent(Agent):
         self.pos = (0, 0)
         self.path = None
         self.current_step = 0
+        self.avoiding_bomb = False
+        self.waiting_for_explosion = True
+        self.original_position = None
+        self.escape_path = []  # Almacenar el camino de escape
+        self.return_path = []  # Almacenar el camino de regreso
+        self.is_returning = False  # Bandera para indicar si está regresando
 
-    def set_path(self, path):
-        self.path = path
-        self.current_step = 0
+    def is_position_transitable(self, pos):
+        """Verifica si una posición es transitable (sin roca ni metal)."""
+        if 0 <= pos[0] < self.model.grid.width and 0 <= pos[1] < self.model.grid.height:
+            contents = self.model.grid.get_cell_list_contents(pos)
+            return not any(isinstance(agent, (Rock, Metal)) for agent in contents)
+        return False
+
+    def place_bomb_and_escape(self):
+        """Coloca una bomba y genera una ruta de escape paso a paso."""
+        self.original_position = self.pos
+        self.avoiding_bomb = True
+        self.waiting_for_explosion = True
+        self.escape_path = []
+        self.return_path = []
+        self.is_returning = False
+
+        # Generar el camino de escape
+        directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
+        current_pos = self.pos
+        self.escape_path.append(current_pos)
+        for _ in range(2):  # Máximo de 2 pasos de alejamiento
+            for dx, dy in directions:
+                next_pos = (current_pos[0] + dx, current_pos[1] + dy)
+                if self.is_position_transitable(next_pos) and next_pos != self.original_position:
+                    self.escape_path.append(next_pos)  # Agregar la posición al camino de escape
+                    current_pos = next_pos
+                    break
+            else:
+                break
+
+        # Crear el camino de regreso invirtiendo el camino de escape
+        self.return_path = list(reversed(self.escape_path))
 
     def step(self):
-        pass  # El movimiento ahora es controlado por el modelo
+        # Verificar si ha llegado a la salida
+        if self.pos == self.model.exit_position:
+            print("¡Bomberman ha llegado a la salida! Terminando la simulación.")
+            self.model.running = False
+            return
+
+        # Si está escapando de la bomba
+        if self.avoiding_bomb and self.waiting_for_explosion:
+            if self.escape_path:
+                next_pos = self.escape_path.pop(0)  # Tomar el siguiente paso de escape
+                self.model.grid.move_agent(self, next_pos)
+            elif not self.waiting_for_explosion:
+                self.is_returning = True  # Prepararse para el regreso
+                self.waiting_for_explosion = False
+
+        # Si está regresando después de la explosión
+        elif self.avoiding_bomb and  not self.waiting_for_explosion:
+            if self.return_path:
+                next_pos = self.return_path.pop(0)  # Tomar el siguiente paso de regreso
+                self.model.grid.move_agent(self, next_pos)
+            else:
+                # Ha regresado completamente
+                self.avoiding_bomb = False
+                self.is_returning = False
+                self.original_position = None
+
+        # Movimiento normal siguiendo el path
+        elif not self.avoiding_bomb:
+            if self.path and self.current_step < len(self.path):
+                next_pos = self.path[self.current_step].get_position()
+                if self.is_position_transitable(next_pos):
+                    self.model.grid.move_agent(self, next_pos)
+                    self.current_step += 1
+
 
 class Bomb(Agent):
     def __init__(self, unique_id, model):
@@ -24,7 +92,7 @@ class Bomb(Agent):
         self.timer -= 1
         if self.timer <= 0:
             if self.pos is not None:
-                self.model.eliminar_agentes_almacenados(self.pos)
+                self.model.handle_explosion(self.pos)
                 self.model.grid.remove_agent(self)
                 self.model.schedule.remove(self)
                 print(f"Bomba {self.unique_id} explotó en {self.pos}")

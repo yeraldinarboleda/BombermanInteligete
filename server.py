@@ -11,7 +11,7 @@ def agent_portrayal(agent):
     portrayal = {"Shape": "image", "Layer": 0, "scale": 1.0, "text": ""}
     if isinstance(agent, BombermanAgent):
         portrayal["Shape"] = "iconos/bomberman.png"
-        portrayal["Layer"] = 3
+        portrayal["Layer"] = 4
     elif isinstance(agent, Bomb):
         portrayal["Shape"] = "iconos/bomba.png"
         portrayal["Layer"] = 1
@@ -32,11 +32,11 @@ def agent_portrayal(agent):
         portrayal["Layer"] = 0
     elif isinstance(agent, NumberedPath):
         portrayal["Shape"] = "iconos/camino.png"
-        portrayal["Color"] = "white"
-        portrayal["Layer"] = 2
+        portrayal["Layer"] = 3
         portrayal["text"] = str(agent.number)
         portrayal["text_color"] = "black"
     return portrayal
+
 
 # Load the map
 map_loader = MapLoader("mapas/mapa2.txt")
@@ -45,8 +45,8 @@ map_data = map_loader.load_map()
 # Define user settable parameters
 model_params = {
     "map_data": map_data,
-    "search_type": Choice("Search Type", value="no-informada", choices=["no-informada", "informada"]),
-    "algorithm": Choice("Algorithm", value="Anchura", choices=["Anchura", "Profundidad", "Costo Uniforme", "Beam Search", "Hill Climbing", "A*"]),
+    "search_type": Choice("Search Type", value="informada", choices=["no-informada", "informada"]),
+    "algorithm": Choice("Algorithm", value="Hill Climbing", choices=["Anchura", "Profundidad", "Costo Uniforme", "Beam Search", "Hill Climbing", "A*"]),
     "heuristic": Choice("Heuristic", value="Manhattan", choices=["Manhattan", "Euclidiana"]),
 }
 
