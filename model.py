@@ -1,15 +1,21 @@
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
-from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath
+from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath ,Explosion
 from controllers.UninformedSearch import SearchFunctions, Node
 from controllers.InformedSearch import InformedSearch
 import os
 class BombermanModel(Model):
-    def __init__(self, map_data, search_type, algorithm, heuristic):
+    def __init__(self, map_data, search_type, algorithm, heuristic, poder):
         # Agregar variable para almacenar las posiciones visitadas
         self.path_positions = {}
         self.path_counter = 1  # Empezar la numeración desde 1
+        
+        # Almacena los parámetros iniciales
+        self.initial_map_data = map_data
+        self.initial_search_type = search_type
+        self.initial_algorithm = algorithm
+        self.initial_heuristic = heuristic
 
         self.map_data = map_data
         self.grid_width = len(map_data[0])
@@ -42,6 +48,10 @@ class BombermanModel(Model):
             
         self.visit_order = {}  
         self.visit_counter = 1  
+        
+        # Llamar al método de configuración inicial
+        self.setup_model()
+
         
 
         self.apply_search_algorithm()
@@ -88,32 +98,54 @@ class BombermanModel(Model):
                     self.place_agent_safely(Exit(self.next_id(), self), pos)
                     self.exit_position = pos
             
-                
+    def setup_model(self):
+        # Inicializar la grilla y el schedule
+        self.grid_width = len(self.initial_map_data[0])
+        self.grid_height = len(self.initial_map_data)
+        self.grid = MultiGrid(self.grid_width, self.grid_height, torus=False)
+        self.schedule = RandomActivation(self)
+        self.running = True
+        self.exit_position = None
+        
+        # Cargar agentes
+        self.load_agents_from_map(self.initial_map_data)
+        self.apply_search_algorithm()
+
+    def restart_simulation(self):
+        print("Reiniciando simulación...")
+
+        # Eliminar todos los agentes de la grilla y el schedule
+        for agent in self.schedule.agents:
+            self.grid.remove_agent(agent)
+        self.schedule = RandomActivation(self)  # Reiniciar el scheduler
+
+        # Volver a configurar el modelo
+        self.setup_model()
+        
     def handle_explosion(self, pos):
-        # Define el rango de la explosión (incluye el centro y celdas adyacentes)
-        explosion_range = [(pos[0], pos[1])]  # Posición central
-        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:  # Celdas adyacentes
+        explosion_range = [(pos[0], pos[1])]
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
             new_pos = (pos[0] + dx, pos[1] + dy)
             if 0 <= new_pos[0] < self.grid_width and 0 <= new_pos[1] < self.grid_height:
                 explosion_range.append(new_pos)
 
-        # Procesar cada posición en el rango de la explosión
         for explosion_pos in explosion_range:
             cell_contents = list(self.grid.get_cell_list_contents(explosion_pos))
-            for agente in cell_contents:
-                if isinstance(agente, BombermanAgent):
-                    self.grid.remove_agent(agente)
-                    self.schedule.remove(agente)
-                    print(f"Bomberman {agente.unique_id} eliminado en {agente.pos}")
-                elif isinstance(agente, Rock):
-                    self.grid.remove_agent(agente)
-                    self.schedule.remove(agente)
-                    print(f"Roca {agente.unique_id} destruida en {agente.pos}")
-                elif isinstance(agente, Metal):
-                    print(f"Metal {agente.unique_id} en {agente.pos} es indestructible")
-                elif isinstance(agente, Exit):
-                    # No eliminar la salida, mostrar mensaje opcional
-                    print(f"Salida en {agente.pos} es segura y no se elimina")
+            for agent in cell_contents:
+                if isinstance(agent, Rock):
+                    self.grid.remove_agent(agent)
+                    self.schedule.remove(agent)
+                    print(f"Roca {agent.unique_id} destruida en {agent.pos}")
+                elif isinstance(agent, BombermanAgent):
+                    self.grid.remove_agent(agent)
+                    self.schedule.remove(agent)
+                    print(f"¡Bomberman murió en la explosión en {explosion_pos}!")
+                    # reiniciar la libreria mesa 
+
+            # Añadir el agente de explosión en la posición de la explosión
+            explosion = Explosion(self.next_id(), self)
+            self.grid.place_agent(explosion, explosion_pos)
+            self.schedule.add(explosion)
 
     def get_walkable_nodes(self):
         walkable_nodes = []

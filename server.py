@@ -1,7 +1,7 @@
 from mesa.visualization.modules import CanvasGrid
 from mesa.visualization.ModularVisualization import ModularServer
 from model import BombermanModel
-from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath
+from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath, Explosion
 from controllers.MapLoader import MapLoader
 from mesa.visualization.UserParam import Choice
 
@@ -35,8 +35,12 @@ def agent_portrayal(agent):
         portrayal["Shape"] = "iconos/camino.png"
         portrayal["Layer"] = 1
         portrayal["text"] = str(agent.number)
-        portrayal["text_color"] = "black"
+        portrayal["text_color"] = "black"    
+    elif isinstance(agent, Explosion):
+        portrayal["Shape"] = "iconos/explosion.png"
+        portrayal["Layer"] = 2
     return portrayal
+
 
 
 # Load the map
@@ -49,6 +53,7 @@ model_params = {
     "search_type": Choice("Search Type", value="informada", choices=["no-informada", "informada"]),
     "algorithm": Choice("Algorithm", value="Hill Climbing", choices=["Anchura", "Profundidad", "Costo Uniforme", "Beam Search", "Hill Climbing", "A*"]),
     "heuristic": Choice("Heuristic", value="Manhattan", choices=["Manhattan", "Euclidiana"]),
+    "poder": Choice("Poder", value=0, choices=[0,1,2,3,4,5])
 }
 
 
@@ -65,4 +70,5 @@ server = ModularServer(
 )
 
 server.port = 8521
+server.model_cls.server = server
 server.launch()

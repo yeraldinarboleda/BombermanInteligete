@@ -47,12 +47,21 @@ class BombermanAgent(Agent):
         # Crear el camino de regreso invirtiendo el camino de escape
         self.return_path = list(reversed(self.escape_path))
 
+    
+
     def step(self):
         # Verificar si ha llegado a la salida
         if self.pos == self.model.exit_position:
             print("¡Bomberman ha llegado a la salida! Terminando la simulación.")
             self.model.running = False
             return
+        
+        """# Verificar colisión con un globo
+        contents = self.model.grid.get_cell_list_contents(self.pos)
+        if any(isinstance(agent, Balloon) for agent in contents):
+            print("¡Bomberman se encontró con un globo y ha muerto!")
+            # reiniciar la libreria mesa 
+            return"""
 
         # Si está escapando de la bomba
         if self.avoiding_bomb and self.waiting_for_explosion:
@@ -153,4 +162,14 @@ class NumberedPath(Agent):
         self.pos = pos
         self.number = number
 
-    
+class Explosion(Agent):
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+        self.timer = 2  # Tiempo de vida de la explosión en pasos
+
+    def step(self):
+        self.timer -= 1
+        if self.timer <= 0:
+            # Elimina la explosión del grid y del scheduler
+            self.model.grid.remove_agent(self)
+            self.model.schedule.remove(self)
