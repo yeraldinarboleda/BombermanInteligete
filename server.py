@@ -7,6 +7,7 @@ from mesa.visualization.UserParam import Choice
 
 
 # Define la grilla
+# En server.py
 def agent_portrayal(agent):
     portrayal = {"Shape": "image", "Layer": 0, "scale": 1.0, "text": ""}
     if isinstance(agent, BombermanAgent):
@@ -14,25 +15,25 @@ def agent_portrayal(agent):
         portrayal["Layer"] = 4
     elif isinstance(agent, Bomb):
         portrayal["Shape"] = "iconos/bomba.png"
-        portrayal["Layer"] = 1
+        portrayal["Layer"] = 3  # Cambiar capa para mejor visibilidad
     elif isinstance(agent, Rock):
         portrayal["Shape"] = "iconos/roca.png"
-        portrayal["Layer"] = 1
+        portrayal["Layer"] = 5
     elif isinstance(agent, Metal):
         portrayal["Shape"] = "iconos/metal.png"
         portrayal["Layer"] = 1
     elif isinstance(agent, Balloon):
         portrayal["Shape"] = "iconos/globo.png"
-        portrayal["Layer"] = 2
+        portrayal["Layer"] = 6
     elif isinstance(agent, Exit):
         portrayal["Shape"] = "iconos/salida.png"
-        portrayal["Layer"] = 1
+        portrayal["Layer"] = 7 
     elif isinstance(agent, Path):
         portrayal["Shape"] = "iconos/camino.png"
         portrayal["Layer"] = 0
     elif isinstance(agent, NumberedPath):
         portrayal["Shape"] = "iconos/camino.png"
-        portrayal["Layer"] = 3
+        portrayal["Layer"] = 1
         portrayal["text"] = str(agent.number)
         portrayal["text_color"] = "black"
     return portrayal

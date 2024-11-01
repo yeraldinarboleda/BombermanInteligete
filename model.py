@@ -90,31 +90,30 @@ class BombermanModel(Model):
             
                 
     def handle_explosion(self, pos):
-        # Define el rango de la explosión (centro y celdas adyacentes)
+        # Define el rango de la explosión (incluye el centro y celdas adyacentes)
         explosion_range = [(pos[0], pos[1])]  # Posición central
         for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:  # Celdas adyacentes
             new_pos = (pos[0] + dx, pos[1] + dy)
             if 0 <= new_pos[0] < self.grid_width and 0 <= new_pos[1] < self.grid_height:
                 explosion_range.append(new_pos)
-        
+
         # Procesar cada posición en el rango de la explosión
         for explosion_pos in explosion_range:
             cell_contents = list(self.grid.get_cell_list_contents(explosion_pos))
             for agente in cell_contents:
                 if isinstance(agente, BombermanAgent):
                     self.grid.remove_agent(agente)
-                    if agente in self.schedule.agents:
-                        self.schedule.remove(agente)
+                    self.schedule.remove(agente)
                     print(f"Bomberman {agente.unique_id} eliminado en {agente.pos}")
                 elif isinstance(agente, Rock):
                     self.grid.remove_agent(agente)
-                    if agente in self.schedule.agents:
-                        self.schedule.remove(agente)
+                    self.schedule.remove(agente)
                     print(f"Roca {agente.unique_id} destruida en {agente.pos}")
                 elif isinstance(agente, Metal):
                     print(f"Metal {agente.unique_id} en {agente.pos} es indestructible")
                 elif isinstance(agente, Exit):
-                    print(f"Salida no debe ser eliminada en {agente.pos}")
+                    # No eliminar la salida, mostrar mensaje opcional
+                    print(f"Salida en {agente.pos} es segura y no se elimina")
 
     def get_walkable_nodes(self):
         walkable_nodes = []

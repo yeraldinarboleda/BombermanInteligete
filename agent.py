@@ -83,21 +83,21 @@ class BombermanAgent(Agent):
                     self.current_step += 1
 
 
+# En agent.py
 class Bomb(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
-        self.timer = 10
+        self.timer = 10  # Ajusta este valor según el tiempo que quieres que la bomba dure
 
     def step(self):
         self.timer -= 1
         if self.timer <= 0:
+            # Llama a handle_explosion solo cuando el temporizador llega a 0
             if self.pos is not None:
                 self.model.handle_explosion(self.pos)
-                self.model.grid.remove_agent(self)
-                self.model.schedule.remove(self)
-                print(f"Bomba {self.unique_id} explotó en {self.pos}")
-            else:
-                print(f"Bomba {self.unique_id} ya no está en la grilla.")
+            self.model.schedule.remove(self)
+            print(f"Bomba {self.unique_id} explotó en {self.pos}")
+
 
 class Rock(Agent):
     def __init__(self, unique_id, model):

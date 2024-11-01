@@ -110,16 +110,6 @@ class SearchFunctions:
         return 1
    
     
-    """def obtener_nodos_adyacentes_profundidad(self, nodo):
-        adyacentes = []
-        for dx, dy in [(1, 0), (0, -1),(0, 1),(-1, 0)]:
-            x, y = nodo.x + dx, nodo.y + dy
-            if 0 <= x < len(self.matriz[0]) and 0 <= y < len(self.matriz):
-                if self.matriz[y][x] in ["C", "C_b", "C_g","S","R_s"]:
-                    adyacentes.append(Node(x, y))
-                    
-        return adyacentes"""
-    
     def obtener_nodos_adyacentes(self, nodo):
         adyacentes = []
         for dx, dy in [(-1, 0),(0, 1), (1, 0), (0, -1)]:
