@@ -1,7 +1,7 @@
 from mesa.visualization.modules import CanvasGrid
 from mesa.visualization.ModularVisualization import ModularServer
 from model import BombermanModel
-from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath, Explosion
+from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath, Explosion, Extra
 from controllers.MapLoader import MapLoader
 from mesa.visualization.UserParam import Choice
 
@@ -15,7 +15,7 @@ def agent_portrayal(agent):
         portrayal["Layer"] = 4
     elif isinstance(agent, Bomb):
         portrayal["Shape"] = "iconos/bomba.png"
-        portrayal["Layer"] = 3  # Cambiar capa para mejor visibilidad
+        portrayal["Layer"] = 3 
     elif isinstance(agent, Rock):
         portrayal["Shape"] = "iconos/roca.png"
         portrayal["Layer"] = 5
@@ -38,13 +38,15 @@ def agent_portrayal(agent):
         portrayal["text_color"] = "black"    
     elif isinstance(agent, Explosion):
         portrayal["Shape"] = "iconos/explosion.png"
-        portrayal["Layer"] = 2
+        portrayal["Layer"] = 8
+    elif isinstance(agent, Extra):
+        portrayal["Shape"] = "iconos/extra.png"
+        portrayal["Layer"] = 9
     return portrayal
 
 
-
 # Load the map
-map_loader = MapLoader("mapas/mapa2.txt")
+map_loader = MapLoader("mapas/mapa6.txt")
 map_data = map_loader.load_map()
 
 # Define user settable parameters
@@ -53,7 +55,7 @@ model_params = {
     "search_type": Choice("Search Type", value="informada", choices=["no-informada", "informada"]),
     "algorithm": Choice("Algorithm", value="Hill Climbing", choices=["Anchura", "Profundidad", "Costo Uniforme", "Beam Search", "Hill Climbing", "A*"]),
     "heuristic": Choice("Heuristic", value="Manhattan", choices=["Manhattan", "Euclidiana"]),
-    "poder": Choice("Poder", value=0, choices=[0,1,2,3,4,5])
+    "comodin": Choice("Comodin", value=0, choices=list(range(21)))
 }
 
 

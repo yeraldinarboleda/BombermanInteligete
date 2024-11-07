@@ -1,12 +1,14 @@
 from mesa import Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
-from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath ,Explosion
+from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath ,Explosion, Extra
 from controllers.UninformedSearch import SearchFunctions, Node
 from controllers.InformedSearch import InformedSearch
 import os
+import random
+
 class BombermanModel(Model):
-    def __init__(self, map_data, search_type, algorithm, heuristic, poder):
+    def __init__(self, map_data, search_type, algorithm, heuristic, comodin):
         # Agregar variable para almacenar las posiciones visitadas
         self.path_positions = {}
         self.path_counter = 1  # Empezar la numeración desde 1
@@ -36,6 +38,11 @@ class BombermanModel(Model):
         self.current_path = None
         
         self.path = []
+        
+        
+        # Inicializar el poder de destrucción y la probabilidad de comodines
+        self.pd = 1  # Poder de destrucción inicial
+        self.comodin_count = comodin
 
         self.load_agents_from_map(map_data)
 
@@ -51,8 +58,6 @@ class BombermanModel(Model):
         
         # Llamar al método de configuración inicial
         self.setup_model()
-
-        
 
         self.apply_search_algorithm()
 
@@ -72,6 +77,9 @@ class BombermanModel(Model):
             self.schedule.add(agent)
 
     def load_agents_from_map(self, map_data):
+        
+        rock_positions = []
+        
         for y, row in enumerate(map_data):
             for x, cell in enumerate(row):
                 pos = (x, y)
@@ -83,6 +91,7 @@ class BombermanModel(Model):
                 elif cell == "R":
                     self.place_agent_safely(Path(pos, self), pos)
                     self.place_agent_safely(Rock(self.next_id(), self), pos)
+                    rock_positions.append(pos)
                 elif cell == "M":
                     self.place_agent_safely(Metal(self.next_id(), self), pos)
                 elif cell == "C_g":
@@ -97,6 +106,10 @@ class BombermanModel(Model):
                     self.place_agent_safely(Path(pos, self), pos)
                     self.place_agent_safely(Exit(self.next_id(), self), pos)
                     self.exit_position = pos
+        # Colocar los comodines en posiciones de roca de forma aleatoria
+        random.shuffle(rock_positions)
+        for pos in rock_positions[:self.comodin_count]:
+            self.place_agent_safely(Extra(self.next_id(), self), pos)
             
     def setup_model(self):
         # Inicializar la grilla y el schedule
@@ -122,9 +135,10 @@ class BombermanModel(Model):
         # Volver a configurar el modelo
         self.setup_model()
         
+
     def handle_explosion(self, pos):
         explosion_range = [(pos[0], pos[1])]
-        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+        for dx, dy in [(i, j) for i in range(-self.pd, self.pd+1) for j in range(-self.pd, self.pd+1) if i != 0 or j != 0]:
             new_pos = (pos[0] + dx, pos[1] + dy)
             if 0 <= new_pos[0] < self.grid_width and 0 <= new_pos[1] < self.grid_height:
                 explosion_range.append(new_pos)
@@ -140,12 +154,17 @@ class BombermanModel(Model):
                     self.grid.remove_agent(agent)
                     self.schedule.remove(agent)
                     print(f"¡Bomberman murió en la explosión en {explosion_pos}!")
-                    # reiniciar la libreria mesa 
+                    # Aquí podrías reiniciar la simulación si Bomberman muere
+                elif isinstance(agent, Balloon):  # Verificación para eliminar globos
+                    self.grid.remove_agent(agent)
+                    self.schedule.remove(agent)
+                    print(f"Globo {agent.unique_id} destruido en {explosion_pos}")
 
             # Añadir el agente de explosión en la posición de la explosión
             explosion = Explosion(self.next_id(), self)
             self.grid.place_agent(explosion, explosion_pos)
             self.schedule.add(explosion)
+
 
     def get_walkable_nodes(self):
         walkable_nodes = []

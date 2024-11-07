@@ -14,15 +14,8 @@ class BombermanAgent(Agent):
         self.return_path = []  # Almacenar el camino de regreso
         self.is_returning = False  # Bandera para indicar si está regresando
 
-    def is_position_transitable(self, pos):
-        """Verifica si una posición es transitable (sin roca ni metal)."""
-        if 0 <= pos[0] < self.model.grid.width and 0 <= pos[1] < self.model.grid.height:
-            contents = self.model.grid.get_cell_list_contents(pos)
-            return not any(isinstance(agent, (Rock, Metal)) for agent in contents)
-        return False
-
     def place_bomb_and_escape(self):
-        """Coloca una bomba y genera una ruta de escape paso a paso."""
+        """Coloca una bomba y genera una ruta de escape basada en el poder de destrucción (pd)."""
         self.original_position = self.pos
         self.avoiding_bomb = True
         self.waiting_for_explosion = True
@@ -30,26 +23,45 @@ class BombermanAgent(Agent):
         self.return_path = []
         self.is_returning = False
 
-        # Generar el camino de escape
+        # Calcular el camino de escape basado en el poder de destrucción
         directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
         current_pos = self.pos
         self.escape_path.append(current_pos)
-        for _ in range(2):  # Máximo de 2 pasos de alejamiento
+
+        # Aumentar la distancia de escape en función de `pd`
+        for _ in range(self.model.pd + 2):  # Escape `pd` casillas + 1 de seguridad
+            found_safe_step = False
             for dx, dy in directions:
                 next_pos = (current_pos[0] + dx, current_pos[1] + dy)
                 if self.is_position_transitable(next_pos) and next_pos != self.original_position:
-                    self.escape_path.append(next_pos)  # Agregar la posición al camino de escape
+                    self.escape_path.append(next_pos)
                     current_pos = next_pos
+                    found_safe_step = True
                     break
-            else:
-                break
+            if not found_safe_step:
+                break  # Salir si no hay más pasos seguros
 
         # Crear el camino de regreso invirtiendo el camino de escape
         self.return_path = list(reversed(self.escape_path))
 
-    
+    # Método para verificar si una posición es transitable
+    def is_position_transitable(self, pos):
+        """Verifica si una posición es transitable (sin roca ni metal)."""
+        if 0 <= pos[0] < self.model.grid.width and 0 <= pos[1] < self.model.grid.height:
+            contents = self.model.grid.get_cell_list_contents(pos)
+            return not any(isinstance(agent, (Rock, Metal)) for agent in contents)
+        return False
 
     def step(self):
+        
+        contents = self.model.grid.get_cell_list_contents(self.pos)
+        for agent in contents:
+            if isinstance(agent, Extra):
+                self.model.grid.remove_agent(agent)
+                self.model.schedule.remove(agent)
+                print("¡Bomberman ha recogido un comodín! Aumenta el poder de destrucción.")
+                self.model.pd += 1 
+                
         # Verificar si ha llegado a la salida
         if self.pos == self.model.exit_position:
             print("¡Bomberman ha llegado a la salida! Terminando la simulación.")
@@ -96,7 +108,7 @@ class BombermanAgent(Agent):
 class Bomb(Agent):
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
-        self.timer = 10  # Ajusta este valor según el tiempo que quieres que la bomba dure
+        self.timer = model.pd * 2 + 10
 
     def step(self):
         self.timer -= 1
@@ -173,3 +185,8 @@ class Explosion(Agent):
             # Elimina la explosión del grid y del scheduler
             self.model.grid.remove_agent(self)
             self.model.schedule.remove(self)
+
+class Extra(Agent):
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+        self.pos = (0, 0)
