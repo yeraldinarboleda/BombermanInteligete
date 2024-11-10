@@ -18,6 +18,8 @@ class BombermanModel(Model):
         self.initial_search_type = search_type
         self.initial_algorithm = algorithm
         self.initial_heuristic = heuristic
+        
+        self.visited_positions = []
 
         self.map_data = map_data
         self.grid_width = len(map_data[0])
@@ -123,47 +125,6 @@ class BombermanModel(Model):
         # Cargar agentes
         self.load_agents_from_map(self.initial_map_data)
         self.apply_search_algorithm()
-
-    def restart_simulation(self):
-        print("Reiniciando simulación...")
-
-        # Eliminar todos los agentes de la grilla y el schedule
-        for agent in self.schedule.agents:
-            self.grid.remove_agent(agent)
-        self.schedule = RandomActivation(self)  # Reiniciar el scheduler
-
-        # Volver a configurar el modelo
-        self.setup_model()
-        
-
-    def handle_explosion(self, pos):
-        explosion_range = [(pos[0], pos[1])]
-        for dx, dy in [(i, j) for i in range(-self.pd, self.pd+1) for j in range(-self.pd, self.pd+1) if i != 0 or j != 0]:
-            new_pos = (pos[0] + dx, pos[1] + dy)
-            if 0 <= new_pos[0] < self.grid_width and 0 <= new_pos[1] < self.grid_height:
-                explosion_range.append(new_pos)
-
-        for explosion_pos in explosion_range:
-            cell_contents = list(self.grid.get_cell_list_contents(explosion_pos))
-            for agent in cell_contents:
-                if isinstance(agent, Rock):
-                    self.grid.remove_agent(agent)
-                    self.schedule.remove(agent)
-                    print(f"Roca {agent.unique_id} destruida en {agent.pos}")
-                elif isinstance(agent, BombermanAgent):
-                    self.grid.remove_agent(agent)
-                    self.schedule.remove(agent)
-                    print(f"¡Bomberman murió en la explosión en {explosion_pos}!")
-                    # Aquí podrías reiniciar la simulación si Bomberman muere
-                elif isinstance(agent, Balloon):  # Verificación para eliminar globos
-                    self.grid.remove_agent(agent)
-                    self.schedule.remove(agent)
-                    print(f"Globo {agent.unique_id} destruido en {explosion_pos}")
-
-            # Añadir el agente de explosión en la posición de la explosión
-            explosion = Explosion(self.next_id(), self)
-            self.grid.place_agent(explosion, explosion_pos)
-            self.schedule.add(explosion)
 
 
     def get_walkable_nodes(self):
@@ -277,27 +238,6 @@ class BombermanModel(Model):
             print("No se encontró un camino desde Bomberman hasta la salida.")
 
     
-    
-
-    # Agregar método reset_bomberman en model.py
-    def reset_bomberman(self, bomberman):
-        # Encontrar la posición inicial de Bomberman (donde está C_b en el mapa)
-        initial_pos = None
-        for y, row in enumerate(self.map_data):
-            for x, cell in enumerate(row):
-                if cell == "C_b":
-                    initial_pos = (x, y)
-                    break
-            if initial_pos:
-                break
-        
-        if initial_pos:
-            self.grid.move_agent(bomberman, initial_pos)
-            bomberman.avoiding_bomb = False
-            # Recalcular el camino desde la nueva posición
-            self.recalculate_path(bomberman)
-        else:
-            print("Error: No se encontró la posición inicial para Bomberman")
 
     # Agregar método recalculate_path en model.py
     def recalculate_path(self, bomberman):
@@ -375,11 +315,121 @@ class BombermanModel(Model):
          
 
 
+    def check_and_collect_power(self, bomberman, pos):
+        """
+        Verifica y recoge poderes en la posición actual
+        """
+        contents = self.grid.get_cell_list_contents(pos)
+        for agent in contents:
+            if isinstance(agent, Extra):
+                print(f"¡Poder recogido! Poder de destrucción aumentado de {self.pd} a {self.pd + 1}")
+                self.pd += 1
+                self.grid.remove_agent(agent)
+                self.schedule.remove(agent)
+                return True
+        return False
+
+    def get_safe_escape_position(self, bomberman_pos):
+        """
+        Encuentra una posición segura fuera del rango de la explosión.
+        """
+        # Calcular el área de peligro (rango de la explosión)
+        danger_positions = set()
+        # Añadir la posición central
+        danger_positions.add(bomberman_pos)
+        
+        # Añadir posiciones en las cuatro direcciones considerando el pd actual
+        directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
+        for dx, dy in directions:
+            for distance in range(1, self.pd + 1):
+                new_x = bomberman_pos[0] + (dx * distance)
+                new_y = bomberman_pos[1] + (dy * distance)
+                if 0 <= new_x < self.grid_width and 0 <= new_y < self.grid_height:
+                    danger_positions.add((new_x, new_y))
+        
+        # Buscar todas las posiciones seguras (fuera del área de peligro)
+        safe_positions = []
+        for x in range(self.grid_width):
+            for y in range(self.grid_height):
+                pos = (x, y)
+                if pos not in danger_positions:
+                    # Verificar que la posición está libre
+                    contents = self.grid.get_cell_list_contents(pos)
+                    if not any(isinstance(agent, (Metal, Rock, Balloon, Bomb)) for agent in contents):
+                        safe_positions.append(pos)
+        
+        if not safe_positions:
+            return None
+            
+        # Encontrar la posición segura más cercana que sea alcanzable
+        safe_positions.sort(key=lambda pos: abs(pos[0] - bomberman_pos[0]) + abs(pos[1] - bomberman_pos[1]))
+        
+        for safe_pos in safe_positions:
+            path, _ = self.find_path(bomberman_pos, safe_pos)
+            if path and len(path) > 1:  # Asegurarse de que hay un camino válido
+                return safe_pos
+                
+        return None
+
+    def handle_explosion(self, pos):
+        # Inicializar lista de posiciones a afectar por la explosión
+        explosion_positions = [(pos[0], pos[1])]
+        directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # Direcciones cardinales
+        
+        # Calcular el alcance de la explosión en cada dirección
+        for dx, dy in directions:
+            # Iterar por cada unidad de distancia hasta el poder de destrucción actual
+            for distance in range(1, self.pd + 1):
+                new_pos = (pos[0] + dx * distance, pos[1] + dy * distance)
+                
+                # Verificar que la posición está dentro de los límites de la grilla
+                if 0 <= new_pos[0] < self.grid_width and 0 <= new_pos[1] < self.grid_height:
+                    contents = self.grid.get_cell_list_contents(new_pos)
+                    
+                    # Si hay metal, detener la propagación en esta dirección
+                    if any(isinstance(agent, Metal) for agent in contents):
+                        break
+                    
+                    # Si hay roca, incluir esta posición pero detener la propagación en esta dirección
+                    if any(isinstance(agent, Rock) for agent in contents):
+                        explosion_positions.append(new_pos)
+                        break
+                    
+                    # Si no hay obstáculos, continuar la propagación
+                    explosion_positions.append(new_pos)
+
+        # Procesar los efectos en todas las posiciones afectadas
+        for explosion_pos in explosion_positions:
+            cell_contents = list(self.grid.get_cell_list_contents(explosion_pos))
+            for agent in cell_contents:
+                if isinstance(agent, Rock):
+                    self.grid.remove_agent(agent)
+                    self.schedule.remove(agent)
+                    print(f"Roca {agent.unique_id} destruida en {agent.pos}")
+                elif isinstance(agent, BombermanAgent):
+                    self.grid.remove_agent(agent)
+                    self.schedule.remove(agent)
+                    print(f"¡Bomberman murió en la explosión en {explosion_pos}!")
+                    self.running = False
+                    return
+                elif isinstance(agent, Balloon):
+                    self.grid.remove_agent(agent)
+                    self.schedule.remove(agent)
+                    print(f"Globo {agent.unique_id} destruido en {explosion_pos}")
+
+            # Crear efecto visual de explosión
+            explosion = Explosion(self.next_id(), self)
+            self.grid.place_agent(explosion, explosion_pos)
+            self.schedule.add(explosion)
+
     def step(self):
+        """Maneja toda la lógica de pasos del modelo y los agentes."""
         self.schedule.step()
+        
+        # Manejar explosiones de bombas
         bombs_to_remove = []
         explosion_occurred = False
-
+        
         for agent in self.schedule.agents:
             if isinstance(agent, Bomb):
                 agent.timer -= 1
@@ -387,35 +437,92 @@ class BombermanModel(Model):
                     self.handle_explosion(agent.pos)
                     bombs_to_remove.append(agent)
                     explosion_occurred = True
-
+                    
+        # Remover bombas explotadas
         for bomb in bombs_to_remove:
             self.grid.remove_agent(bomb)
             self.schedule.remove(bomb)
-
+            
+        # Obtener referencia a Bomberman
         bomberman = next((agent for agent in self.schedule.agents if isinstance(agent, BombermanAgent)), None)
-        if bomberman:
-            if bomberman.avoiding_bomb:
+        if not bomberman:
+            return
+            
+        # Verificar y recoger poder en la posición actual
+        self.check_and_collect_power(bomberman, bomberman.pos)
+            
+        # Actualizar la lista de posiciones visitadas
+        if bomberman.pos not in self.visited_positions:
+            self.visited_positions.append(bomberman.pos)
+        
+        # Verificar si Bomberman ha llegado a la salida
+        if bomberman.pos == self.exit_position:
+            print("¡Bomberman ha llegado a la salida! ¡Victoria!")
+            self.running = False
+            return
+            
+        # Verificar colisión con globo
+        contents = self.grid.get_cell_list_contents(bomberman.pos)
+        if any(isinstance(agent, Balloon) for agent in contents):
+            print("¡Bomberman se encontró con un globo y ha muerto!")
+            self.grid.remove_agent(bomberman)
+            self.schedule.remove(bomberman)
+            self.running = False
+            return
+            
+        # Manejar el comportamiento de escape de la bomba
+        if bomberman.avoiding_bomb:
+            if bomberman.waiting_for_explosion:
                 if explosion_occurred:
-                    bomberman.waiting_for_explosion = False  # Habilitar el retorno tras la explosión
-                else:
-                    return  # Esperar hasta que ocurra la explosión
-
-            # Mover a Bomberman al siguiente paso del camino después de la explosión
-            if not bomberman.avoiding_bomb:
-                if self.path and self.current_step < len(self.path):
-                    next_pos = self.path[self.current_step].get_position()
-                    contents = self.grid.get_cell_list_contents(next_pos)
-
-                    if any(isinstance(agent, Rock) for agent in contents):
-                        # Colocar bomba si encuentra una roca y activar el alejamiento
-                        bomberman.original_position = bomberman.pos
-                        bomb = Bomb(self.next_id(), self)
-                        self.place_agent_safely(bomb, bomberman.pos)
-                        bomberman.avoiding_bomb = True
-                        bomberman.place_bomb_and_escape()
+                    print("¡Explosión detectada! Recalculando ruta...")
+                    bomberman.waiting_for_explosion = False
+                    bomberman.avoiding_bomb = False
+                    self.recalculate_path(bomberman)
+                    return
+                elif bomberman.escape_path and len(bomberman.escape_path) > 0:
+                    next_pos = bomberman.escape_path.pop(0)
+                    # Verificar y recoger poder antes de moverse
+                    self.grid.move_agent(bomberman, next_pos)
+                    self.check_and_collect_power(bomberman, next_pos)
+                    return
+            
+        # Movimiento normal siguiendo el path
+        if self.path and self.current_step < len(self.path):
+            next_pos = self.path[self.current_step].get_position()
+            contents = self.grid.get_cell_list_contents(next_pos)
+            
+            # Verificar si hay una roca en la siguiente posición
+            if any(isinstance(agent, Rock) for agent in contents):
+                # Solo colocar bomba si no estamos evitando otra
+                if not bomberman.avoiding_bomb:
+                    print("Encontrada roca. Colocando bomba...")
+                    # Colocar bomba
+                    bomberman.original_position = bomberman.pos
+                    bomb = Bomb(self.next_id(), self)
+                    self.place_agent_safely(bomb, bomberman.pos)
+                    
+                    # Buscar posición segura para escape
+                    safe_pos = self.get_safe_escape_position(bomberman.pos)
+                    if safe_pos:
+                        print(f"Posición segura encontrada en {safe_pos}. Calculando ruta de escape...")
+                        escape_path, _ = self.find_path(bomberman.pos, safe_pos)
+                        if escape_path and len(escape_path) > 1:
+                            bomberman.avoiding_bomb = True
+                            bomberman.waiting_for_explosion = True
+                            bomberman.escape_path = escape_path[1:]  # Excluir posición actual
+                            print(f"Ruta de escape establecida con {len(bomberman.escape_path)} pasos")
+                        else:
+                            print("No se pudo encontrar una ruta hacia la posición segura")
                     else:
-                        # Continuar el camino de Bomberman si no hay obstrucciones
-                        self.grid.move_agent(bomberman, next_pos)
-                        self.current_step += 1
-
+                        print("No se encontró una posición segura para escapar")
+            else:
+                # Mover normalmente si no hay obstáculos
+                self.grid.move_agent(bomberman, next_pos)
+                # Verificar y recoger poder después de moverse
+                self.check_and_collect_power(bomberman, next_pos)
+                self.current_step += 1
+        elif self.path and self.current_step >= len(self.path):
+            print("Recalculando ruta hacia la salida...")
+            self.recalculate_path(bomberman)
+                
         self.step_count += 1

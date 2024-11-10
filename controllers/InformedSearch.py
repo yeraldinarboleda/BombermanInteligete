@@ -5,7 +5,7 @@ from controllers.Tree import TreeG
 from controllers.Node import Node
 
 class InformedSearch:
-    def __init__(self, nodos, matriz, beam_width=4, heuristic_type="manhattan"):
+    def __init__(self, nodos, matriz, beam_width=2, heuristic_type="manhattan"):
         self.nodos = nodos
         self.matriz = matriz
         self.beam_width = beam_width
@@ -48,6 +48,7 @@ class InformedSearch:
                     return final_node.get_path(), visit_order
 
                 children = self.obtener_nodos_adyacentes(current_node)
+                
                 for child in children:
                     if child.get_position() not in visited_nodes:
                         next_level.append((child, current_node))

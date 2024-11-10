@@ -46,7 +46,7 @@ def agent_portrayal(agent):
 
 
 # Load the map
-map_loader = MapLoader("mapas/mapa6.txt")
+map_loader = MapLoader("mapas/mapa5.txt")
 map_data = map_loader.load_map()
 
 # Define user settable parameters
