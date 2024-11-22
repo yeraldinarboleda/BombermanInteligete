@@ -524,7 +524,8 @@ class BombermanModel(Model):
         elif self.path and self.current_step >= len(self.path):
             print("Recalculando ruta hacia la salida...")
             self.recalculate_path(bomberman)
-            
+        
+           
             
         # Verificar colisión con globo
         cell_contents = self.grid.get_cell_list_contents(bomberman.pos)
