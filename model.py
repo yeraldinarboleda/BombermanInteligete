@@ -524,5 +524,21 @@ class BombermanModel(Model):
         elif self.path and self.current_step >= len(self.path):
             print("Recalculando ruta hacia la salida...")
             self.recalculate_path(bomberman)
+            
+            
+        # Verificar colisión con globo
+        cell_contents = self.grid.get_cell_list_contents(bomberman.pos)
+        if any(isinstance(agent, Balloon) for agent in cell_contents):
+            print("¡Bomberman se encontró con un globo y ha muerto!")
+            self.grid.remove_agent(bomberman)
+            self.schedule.remove(bomberman)
+            self.running = False  # Pausar la ejecución del modelo
+            return
                 
+        # Actualizar globos después del movimiento de Bomberman
+        for agent in self.schedule.agents:
+            if isinstance(agent, Balloon):
+                agent.step()  # Llamar al método `step` del globo para actualizar su posición
+
+        # Lógica adicional (verificación de poderes, explosiones, etc.)
         self.step_count += 1
