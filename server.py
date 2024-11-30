@@ -5,9 +5,7 @@ from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, Number
 from controllers.MapLoader import MapLoader
 from mesa.visualization.UserParam import Choice
 
-
 # Define la grilla
-# En server.py
 def agent_portrayal(agent):
     portrayal = {"Shape": "image", "Layer": 0, "scale": 1.0, "text": ""}
     if isinstance(agent, BombermanAgent):
@@ -44,20 +42,34 @@ def agent_portrayal(agent):
         portrayal["Layer"] = 9
     return portrayal
 
-
-# Load the map
 map_loader = MapLoader("mapas/mapa5.txt")
 map_data = map_loader.load_map()
 
-# Define user settable parameters
 model_params = {
     "map_data": map_data,
     "search_type": Choice("Search Type", value="informada", choices=["no-informada", "informada"]),
-    "algorithm": Choice("Algorithm", value="Hill Climbing", choices=["Anchura", "Profundidad", "Costo Uniforme", "Beam Search", "Hill Climbing", "A*"]),
+    "algorithm": Choice(
+        "Algorithm",
+        value="Poda Alfa Beta",
+        choices=["Anchura", "Profundidad", "Costo Uniforme", "Beam Search", "Hill Climbing", "A*", "Poda Alfa Beta"]
+    ),
     "heuristic": Choice("Heuristic", value="Manhattan", choices=["Manhattan", "Euclidiana"]),
-    "comodin": Choice("Comodin", value=0, choices=list(range(21)))
+    "comodin": Choice("Comodin", value=0, choices=list(range(21))),
+    "balloon_difficulty": Choice("Balloon Difficulty", value=0, choices=[0, 1, 2]),
+    "search_depth": Choice("Search Depth", value=3, choices=list(range(1, 11)))  # Agregar el control de profundidad
 }
 
+# Función para reiniciar el modelo
+def reset_model():
+    server.model_cls = BombermanModel
+    server.model_params = model_params
+    
+    
+def check_model_status(model):
+    """Verifica si el modelo necesita reiniciarse."""
+    if not model.running:
+        print("El modelo se ha detenido. Reiniciando...")
+        reset_model()
 
 grid_width = len(map_data[0])
 grid_height = len(map_data)
@@ -73,4 +85,5 @@ server = ModularServer(
 
 server.port = 8521
 server.model_cls.server = server
+server.model_post_step = check_model_status
 server.launch()

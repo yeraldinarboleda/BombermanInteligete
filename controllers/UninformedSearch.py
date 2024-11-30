@@ -115,7 +115,7 @@ class SearchFunctions:
         for dx, dy in [(-1, 0),(0, 1), (1, 0), (0, -1)]:
             x, y = nodo.x + dx, nodo.y + dy
             if 0 <= x < len(self.matriz[0]) and 0 <= y < len(self.matriz):
-                if self.matriz[y][x] in ["C", "C_b", "C_g","S","R_s"]:
+                if self.matriz[y][x] in ["C", "C_b", "C_g","S","R_s","R"]:
                     adyacentes.append(Node(x, y))
                     
         return adyacentes

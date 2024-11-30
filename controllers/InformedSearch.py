@@ -5,13 +5,15 @@ from controllers.Tree import TreeG
 from controllers.Node import Node
 
 class InformedSearch:
-    def __init__(self, nodos, matriz, beam_width=2, heuristic_type="manhattan"):
+    def __init__(self, nodos, matriz, beam_width=2, heuristic_type="manhattan",search_depth=10):
         self.nodos = nodos
         self.matriz = matriz
         self.beam_width = beam_width
         self.heuristic_type = heuristic_type
         # Definir el orden de prioridad para desempate
         self.direcciones = [(-1, 0), (0, 1), (1, 0), (0, -1)]  # Izquierda, arriba, derecha, abajo
+        self.search_depth = search_depth
+        
 
     def get_direction_priority(self, current_node, next_node):
         """Determina la prioridad de dirección entre dos nodos"""
@@ -111,11 +113,11 @@ class InformedSearch:
                 tree_dict = tree.to_dict()
                 print(tree_dict)
                 
-                masReprtido = max(cost_counter, key=cost_counter.get)
-                nodoMasRepetido = cost_counter[masReprtido]
+                masRepetido = max(cost_counter, key=cost_counter.get)
+                nodoMasRepetido = cost_counter[masRepetido]
                 
-                print(f"El costo más repetido es: {masReprtido}")
-                print(f"Nodos con el costo {masReprtido}: {nodoMasRepetido}")
+                print(f"El costo más repetido es: {masRepetido}")
+                print(f"Nodos con el costo {masRepetido}: {nodoMasRepetido}")
                 
                 return final_node.get_path(), visit_order
 
@@ -212,6 +214,7 @@ class InformedSearch:
 
         return None, visit_order
 
+    
     def heuristic(self, node, objetivo):
         if self.heuristic_type == 'manhattan':
             return self.manhattan_distance(node, objetivo)
@@ -237,4 +240,3 @@ class InformedSearch:
                 if self.matriz[y][x] in ["C", "C_b", "C_g", "S", "R_s", "R"]:
                     adyacentes.append(Node(x, y))
         return adyacentes
-    

@@ -1,0 +1,6 @@
+C_g, C_g, C, C_b
+C, C, C, C
+C, C, C, S
+C, C, C, C
+C, C, C, C
+R, M, C, C

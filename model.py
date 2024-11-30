@@ -4,14 +4,19 @@ from mesa.space import MultiGrid
 from agent import BombermanAgent, Bomb, Rock, Metal, Path, Exit, Balloon, NumberedPath ,Explosion, Extra
 from controllers.UninformedSearch import SearchFunctions, Node
 from controllers.InformedSearch import InformedSearch
+from controllers.podaAlfhaBeta import AlphaBetaSearch
 import os
 import random
 
 class BombermanModel(Model):
-    def __init__(self, map_data, search_type, algorithm, heuristic, comodin):
+    def __init__(self, map_data, search_type, algorithm, heuristic, comodin, balloon_difficulty, search_depth):
+        self.search_depth = search_depth
+        self.balloon_difficulty = balloon_difficulty 
         # Agregar variable para almacenar las posiciones visitadas
         self.path_positions = {}
         self.path_counter = 1  # Empezar la numeración desde 1
+        
+        self.current_step = 0 
         
         # Almacena los parámetros iniciales
         self.initial_map_data = map_data
@@ -62,6 +67,8 @@ class BombermanModel(Model):
         self.setup_model()
 
         self.apply_search_algorithm()
+        
+        self.search = AlphaBetaSearch(map_data)
 
     def next_id(self):
         self.current_id += 1
@@ -98,7 +105,7 @@ class BombermanModel(Model):
                     self.place_agent_safely(Metal(self.next_id(), self), pos)
                 elif cell == "C_g":
                     self.place_agent_safely(Path(pos, self), pos)
-                    self.place_agent_safely(Balloon(self.next_id(), self), pos)
+                    self.place_agent_safely(Balloon(self.next_id(), self, self.balloon_difficulty), pos)
                 elif cell == "R_s":
                     self.place_agent_safely(Path(pos, self), pos)
                     self.place_agent_safely(Rock(self.next_id(), self), pos)
@@ -214,7 +221,7 @@ class BombermanModel(Model):
             elif self.algorithm == "Costo Uniforme":
                 path, self.visit_order = self.search_functions.RecorridoCostoUniforme(start_node, goal_node)
 
-        if self.search_type == "informada":
+        elif self.search_type == "informada":
             search_functions = InformedSearch(self.get_walkable_nodes(), self.map_data)
             if self.algorithm == "Beam Search":
                 path, self.visit_order = search_functions.beam_search(start_node, goal_node)
@@ -223,19 +230,15 @@ class BombermanModel(Model):
             elif self.algorithm == "A*":
                 path, self.visit_order = search_functions.a_star(start_node, goal_node)
 
-        if path:
-            # Crear los agentes NumberedPath que muestran el orden de visita en cada celda del camino
-            for pos, order in self.visit_order.items():
-                numbered_path_agent = NumberedPath(self.next_id(), self, order)
-                self.place_agent_safely(numbered_path_agent, pos)
-
-            # Guarda el camino para que Bomberman lo siga
-            path_nodes = [Node(pos[0], pos[1]) for pos in path]  # Convierte las posiciones en objetos Node
-            self.path = path_nodes[1:]  # Elimina el nodo inicial
-            self.current_step = 0
-
+        # Validar y convertir el camino en nodos
+        if path and isinstance(path, list) and all(isinstance(pos, tuple) and len(pos) == 2 for pos in path):
+            # Convierte las posiciones en objetos Node
+            self.path = [Node(pos[0], pos[1]) for pos in path]
+            self.current_step = 0  # Inicializa el paso actual
         else:
-            print("No se encontró un camino desde Bomberman hasta la salida.")
+            print(f"Error: El camino obtenido no es válido. Path: {path}")
+            self.path = None
+            self.current_step = 0
 
     
 
@@ -243,8 +246,30 @@ class BombermanModel(Model):
     def recalculate_path(self, bomberman):
         start_node = Node(bomberman.pos[0], bomberman.pos[1])
         goal_node = Node(self.exit_position[0], self.exit_position[1])
-        
-        # Usar el mismo algoritmo de búsqueda que se usó inicialmente
+        path = None  # Inicializar la variable path
+
+        if self.algorithm == "Poda Alfa Beta":
+            # Usar alpha-beta directamente para calcular el próximo movimiento
+            _, best_move = self.search.alpha_beta(
+                bomberman.pos,
+                self.exit_position,
+                self.search_depth,
+                float('-inf'),
+                float('inf'),
+                True,  # Maximizing player para Bomberman
+                self.exit_position
+            )
+            if best_move:
+                # Si hay un movimiento válido, actualizar el camino con un único paso
+                self.path = [bomberman.pos, best_move]
+                self.current_step = 0
+            else:
+                print("Error: No se pudo encontrar un movimiento válido con poda alfa-beta")
+                self.path = None
+                self.current_step = 0
+            return
+
+        # Lógica para otros algoritmos de búsqueda
         if self.search_type == "no-informada":
             if self.algorithm == "Anchura":
                 path, _ = self.search_functions.RecorridoEnAnchura(start_node, goal_node)
@@ -252,7 +277,7 @@ class BombermanModel(Model):
                 path, _ = self.search_functions.RecorridoEnProfundidad(start_node, goal_node)
             elif self.algorithm == "Costo Uniforme":
                 path, _ = self.search_functions.RecorridoCostoUniforme(start_node, goal_node)
-        else:  # búsqueda informada
+        else:
             search_functions = InformedSearch(self.get_walkable_nodes(), self.map_data)
             if self.algorithm == "Beam Search":
                 path, _ = search_functions.beam_search(start_node, goal_node)
@@ -260,21 +285,25 @@ class BombermanModel(Model):
                 path, _ = search_functions.hill_climbing(start_node, goal_node)
             elif self.algorithm == "A*":
                 path, _ = search_functions.a_star(start_node, goal_node)
-        
+
+        # Actualizar el camino para otros algoritmos
         if path:
             self.path = [Node(pos[0], pos[1]) for pos in path[1:]]  # Excluir posición actual
-            self.current_step = 0
+            self.current_step = 0  # Reiniciar el paso actual
         else:
             print("No se pudo encontrar un nuevo camino hacia la salida")
-            
+            self.path = None
+            self.current_step = 0
+
             
     def find_path(self, start_pos, goal_pos):
-        """
-        Recalcula el camino desde la posición actual hasta el objetivo
-        """
         start_node = Node(start_pos[0], start_pos[1])
         goal_node = Node(goal_pos[0], goal_pos[1])
-        
+
+        # Verificar si las posiciones son válidas
+        if not self.grid.is_cell_empty(start_pos) or not self.grid.is_cell_empty(goal_pos):
+            print(f"Error: Posiciones inválidas para encontrar camino. Start: {start_pos}, Goal: {goal_pos}")
+            return None, None
         # Crear matriz actual del estado del juego
         current_matrix = [[None for _ in range(self.grid_width)] for _ in range(self.grid_height)]
         for (contents, (x, y)) in self.grid.coord_iter():
@@ -330,45 +359,41 @@ class BombermanModel(Model):
         return False
 
     def get_safe_escape_position(self, bomberman_pos):
-        """
-        Encuentra una posición segura fuera del rango de la explosión.
-        """
-        # Calcular el área de peligro (rango de la explosión)
-        danger_positions = set()
-        # Añadir la posición central
-        danger_positions.add(bomberman_pos)
+        # Calculate explosion danger zone
+        danger_positions = set([bomberman_pos])
         
-        # Añadir posiciones en las cuatro direcciones considerando el pd actual
+        # Add danger positions in all directions based on destruction power
         directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
         for dx, dy in directions:
             for distance in range(1, self.pd + 1):
                 new_x = bomberman_pos[0] + (dx * distance)
                 new_y = bomberman_pos[1] + (dy * distance)
-                if 0 <= new_x < self.grid_width and 0 <= new_y < self.grid_height:
+                
+                if (0 <= new_x < self.grid_width and 0 <= new_y < self.grid_height):
                     danger_positions.add((new_x, new_y))
-        
-        # Buscar todas las posiciones seguras (fuera del área de peligro)
+
+        # Find safe positions
         safe_positions = []
         for x in range(self.grid_width):
             for y in range(self.grid_height):
                 pos = (x, y)
                 if pos not in danger_positions:
-                    # Verificar que la posición está libre
                     contents = self.grid.get_cell_list_contents(pos)
                     if not any(isinstance(agent, (Metal, Rock, Balloon, Bomb)) for agent in contents):
                         safe_positions.append(pos)
-        
+
         if not safe_positions:
             return None
-            
-        # Encontrar la posición segura más cercana que sea alcanzable
+
+        # Sort safe positions by distance from current position
         safe_positions.sort(key=lambda pos: abs(pos[0] - bomberman_pos[0]) + abs(pos[1] - bomberman_pos[1]))
-        
+
+        # Find the first reachable safe position
         for safe_pos in safe_positions:
             path, _ = self.find_path(bomberman_pos, safe_pos)
-            if path and len(path) > 1:  # Asegurarse de que hay un camino válido
+            if path and len(path) > 1:
                 return safe_pos
-                
+
         return None
 
     def handle_explosion(self, pos):
@@ -421,15 +446,36 @@ class BombermanModel(Model):
             explosion = Explosion(self.next_id(), self)
             self.grid.place_agent(explosion, explosion_pos)
             self.schedule.add(explosion)
+            
+    def move_bomberman(self, bomberman):
+        if not self.path:  # Si no hay un camino calculado, calcula uno nuevo
+            self.recalculate_path(bomberman)
+        
+        if self.algorithm == "Poda Alfa Beta":
+            # Recalcular el camino en cada paso si es poda alfa-beta
+            self.recalculate_path(bomberman)
 
-    def step(self):
-        """Maneja toda la lógica de pasos del modelo y los agentes."""
-        self.schedule.step()
+        if self.path and self.current_step < len(self.path):
+            # Validar si el elemento en path es un nodo o una tupla
+            next_pos = None
+            if isinstance(self.path[self.current_step], Node):
+                next_pos = self.path[self.current_step].get_position()
+            elif isinstance(self.path[self.current_step], tuple):
+                next_pos = self.path[self.current_step]
+            else:
+                raise ValueError(f"Formato inesperado en self.path: {self.path[self.current_step]}")
+
+            # Realizar las acciones necesarias
+            self.grid.move_agent(bomberman, next_pos)
+            self.check_and_collect_power(bomberman, next_pos)
+            self.current_step += 1
+        elif self.path and self.current_step >= len(self.path):
+            print("Recalculando ruta hacia la salida...")
+            self.recalculate_path(bomberman)
         
         # Manejar explosiones de bombas
         bombs_to_remove = []
         explosion_occurred = False
-        
         for agent in self.schedule.agents:
             if isinstance(agent, Bomb):
                 agent.timer -= 1
@@ -437,39 +483,7 @@ class BombermanModel(Model):
                     self.handle_explosion(agent.pos)
                     bombs_to_remove.append(agent)
                     explosion_occurred = True
-                    
-        # Remover bombas explotadas
-        for bomb in bombs_to_remove:
-            self.grid.remove_agent(bomb)
-            self.schedule.remove(bomb)
-            
-        # Obtener referencia a Bomberman
-        bomberman = next((agent for agent in self.schedule.agents if isinstance(agent, BombermanAgent)), None)
-        if not bomberman:
-            return
-            
-        # Verificar y recoger poder en la posición actual
-        self.check_and_collect_power(bomberman, bomberman.pos)
-            
-        # Actualizar la lista de posiciones visitadas
-        if bomberman.pos not in self.visited_positions:
-            self.visited_positions.append(bomberman.pos)
         
-        # Verificar si Bomberman ha llegado a la salida
-        if bomberman.pos == self.exit_position:
-            print("¡Bomberman ha llegado a la salida! ¡Victoria!")
-            self.running = False
-            return
-            
-        # Verificar colisión con globo
-        contents = self.grid.get_cell_list_contents(bomberman.pos)
-        if any(isinstance(agent, Balloon) for agent in contents):
-            print("¡Bomberman se encontró con un globo y ha muerto!")
-            self.grid.remove_agent(bomberman)
-            self.schedule.remove(bomberman)
-            self.running = False
-            return
-            
         # Manejar el comportamiento de escape de la bomba
         if bomberman.avoiding_bomb:
             if bomberman.waiting_for_explosion:
@@ -481,12 +495,16 @@ class BombermanModel(Model):
                     return
                 elif bomberman.escape_path and len(bomberman.escape_path) > 0:
                     next_pos = bomberman.escape_path.pop(0)
-                    # Verificar y recoger poder antes de moverse
+                    print(f"Bomberman se mueve a la posición de escape: {next_pos}")
                     self.grid.move_agent(bomberman, next_pos)
                     self.check_and_collect_power(bomberman, next_pos)
                     return
-            
-        # Movimiento normal siguiendo el path
+        
+        # Eliminar bombas que han explotado
+        for bomb in bombs_to_remove:
+            self.schedule.remove(bomb)
+            self.grid.remove_agent(bomb)
+
         if self.path and self.current_step < len(self.path):
             next_pos = self.path[self.current_step].get_position()
             contents = self.grid.get_cell_list_contents(next_pos)
@@ -524,22 +542,100 @@ class BombermanModel(Model):
         elif self.path and self.current_step >= len(self.path):
             print("Recalculando ruta hacia la salida...")
             self.recalculate_path(bomberman)
-        
-           
+
             
-        # Verificar colisión con globo
-        cell_contents = self.grid.get_cell_list_contents(bomberman.pos)
-        if any(isinstance(agent, Balloon) for agent in cell_contents):
-            print("¡Bomberman se encontró con un globo y ha muerto!")
-            self.grid.remove_agent(bomberman)
-            self.schedule.remove(bomberman)
-            self.running = False  # Pausar la ejecución del modelo
-            return
-                
-        # Actualizar globos después del movimiento de Bomberman
+    def move_balloon(self, balloon):
+        bomberman_pos = self.get_bomberman_position()
+        salida_pos = self.exit_position
+
+        if balloon.difficulty_level == 0:
+            # Movimiento aleatorio para globos de nivel fácil
+            new_position = self.get_random_valid_move(balloon.pos)
+            if new_position:
+                self.grid.move_agent(balloon, new_position)
+                print(f"Globo {balloon.unique_id} se mueve aleatoriamente a {new_position}")
+            else:
+                print(f"Globo {balloon.unique_id} no tiene movimientos válidos.")
+            
+        else:
+            # Movimiento estratégico con Alpha-Beta
+            _, best_move = self.search.alpha_beta(
+                balloon.pos, bomberman_pos, balloon.search_depth,
+                float('-inf'), float('inf'),
+                False,  # Maximizing player para el globo
+                salida_pos
+            )
+            if best_move and self.search.is_valid_position(best_move):
+                self.grid.move_agent(balloon, best_move)
+                print(f"Globo {balloon.unique_id} se mueve estratégicamente a: {best_move}")
+
+    def get_random_valid_move(self, current_position):
+        possible_moves = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+        random.shuffle(possible_moves)
+        
+        valid_moves = []
+        for move in possible_moves:
+            new_position = (current_position[0] + move[0], current_position[1] + move[1])
+            if self.is_valid_position_for_balloon(new_position):
+                valid_moves.append(new_position)
+        
+        print(f"Movimientos válidos para el globo en {current_position}: {valid_moves}")
+        return random.choice(valid_moves) if valid_moves else None
+
+    def is_valid_position_for_balloon(self, position):
+        """
+        Verifica si una posición es válida para que un globo se mueva.
+        """
+        x, y = position
+        if not (0 <= x < self.grid_width and 0 <= y < self.grid_height):
+            return False
+
+        # Verificar si la celda está vacía o transitable
+        contents = self.grid.get_cell_list_contents(position)
+        return not any(isinstance(agent, (Metal, Rock, Balloon, Bomb)) for agent in contents)
+
+        
+
+    def get_bomberman_position(self):
+        for agent in self.schedule.agents:
+            if isinstance(agent, BombermanAgent):
+                return agent.pos
+        return None
+    
+    def step(self):
+        """Maneja toda la lógica de pasos del modelo y los agentes."""
+        
+        # Mover Bomberman
+        bomberman = next((agent for agent in self.schedule.agents if isinstance(agent, BombermanAgent)), None)
+        if bomberman:
+            self.move_bomberman(bomberman)
+
+        # Mover globos
         for agent in self.schedule.agents:
             if isinstance(agent, Balloon):
-                agent.step()  # Llamar al método `step` del globo para actualizar su posición
+                self.move_balloon(agent)
 
-        # Lógica adicional (verificación de poderes, explosiones, etc.)
+        bomberman_pos = self.get_bomberman_position()
+        salida_pos = self.exit_position
+        
+        if bomberman_pos == salida_pos:
+            print("¡Bomberman se encontró con la salida")
+            self.running = False  # Detiene la simulación
+            return
+        
+        # Verificar si Bomberman colisiona con un globo
+        if bomberman:
+            bomberman_pos = bomberman.pos
+            contents = self.grid.get_cell_list_contents(bomberman_pos)
+            if any(isinstance(agent, Balloon) for agent in contents):
+                print("¡Bomberman se encontró con un globo y ha muerto!")
+                self.running = False  # Detiene la simulación
+                return
+        
+        # Incrementar contador de pasos
         self.step_count += 1
+
+        # Avanzar el reloj del modelo
+        self.schedule.step()
+
+
