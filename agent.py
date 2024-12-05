@@ -52,8 +52,6 @@ class Balloon(Agent):
     def step(self):
        pass
 
-
-
 class Exit(Agent):
     def __init__(self, pos, model):
         super().__init__(pos, model)

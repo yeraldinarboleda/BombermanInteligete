@@ -42,7 +42,7 @@ def agent_portrayal(agent):
         portrayal["Layer"] = 9
     return portrayal
 
-map_loader = MapLoader("mapas/mapa5.txt")
+map_loader = MapLoader("mapas/mapa9.txt")
 map_data = map_loader.load_map()
 
 model_params = {
@@ -63,8 +63,7 @@ model_params = {
 def reset_model():
     server.model_cls = BombermanModel
     server.model_params = model_params
-    
-    
+        
 def check_model_status(model):
     """Verifica si el modelo necesita reiniciarse."""
     if not model.running:
