@@ -5,3 +5,4 @@ en el agente Balloon cambiela profundida de la busqueda de la busqueda para que 
 
 La cantidad de nodos poda es 26 
 
+
