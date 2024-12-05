@@ -4,5 +4,3 @@ En las condiciones de poda if alpha >= beta: fui aumentando el contador
 en el agente Balloon cambiela profundida de la busqueda de la busqueda para que permitiera explorar 5 niveles 
 
 La cantidad de nodos poda es 26 
-
-
