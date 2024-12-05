@@ -9,7 +9,6 @@ class AlphaBetaSearch:
         self.contar_poda=0
     
     def alpha_beta(self, current_pos, target_pos, depth, alpha, beta, maximizing_player, salida_pos, visit_order=None, visited_nodes=set()):
-        print ("cantidad de niveles", depth)
         visited_nodes.add(current_pos)
 
         if depth == 0 or current_pos == target_pos:
