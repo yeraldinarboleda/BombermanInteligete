@@ -6,8 +6,10 @@ class AlphaBetaSearch:
         self.heuristic = heuristic or self.heuristic
         self.tree = TreeG(None)  # Crear un árbol para visualizar la búsqueda
         self.node_counter = 0   # Para asignar identificadores únicos a cada nodo
+        self.contar_poda=0
     
     def alpha_beta(self, current_pos, target_pos, depth, alpha, beta, maximizing_player, salida_pos, visit_order=None, visited_nodes=set()):
+        print ("cantidad de niveles", depth)
         visited_nodes.add(current_pos)
 
         if depth == 0 or current_pos == target_pos:
@@ -32,6 +34,7 @@ class AlphaBetaSearch:
                     if alpha >= beta:
                         # Nodo podado
                         print("Nodo podado:", new_pos)
+                        self.contar_poda=self.contar_poda+1
                         break
             self.tree.add_node((current_pos, max_eval), parent_node_id)
             
@@ -50,9 +53,12 @@ class AlphaBetaSearch:
                     print("Alpha",alpha, "Beta", beta)
                     if alpha >= beta:
                         # Nodo podado
+                        self.contar_poda=self.contar_poda+1
                         print("Nodo podado:", new_pos)
                         break
             self.tree.add_node((current_pos, min_eval), parent_node_id)
+            
+            print ("nodos podados", self.contar_poda)
             
             return min_eval, best_move
 
@@ -65,4 +71,3 @@ class AlphaBetaSearch:
         bomberman_distance = abs(target_pos[0] - current_pos[0]) + abs(target_pos[1] - current_pos[1])
      
         return -(bomberman_distance)
- 

@@ -47,7 +47,7 @@ class Balloon(Agent):
     def __init__(self, unique_id, model, difficulty_level=0):
         super().__init__(unique_id, model)
         self.difficulty_level = difficulty_level
-        self.search_depth = 0 if difficulty_level == 0 else (3 if difficulty_level == 1 else 6)
+        self.search_depth = 5 if difficulty_level == 0 else (5 if difficulty_level == 1 else 7)
 
     def step(self):
        pass
